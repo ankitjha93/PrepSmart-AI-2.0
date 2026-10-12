@@ -232,16 +232,15 @@ export default function SignUpPage() {
           </div>
 
           {/* Quick 1-Click Demo Candidate Bypass */}
-          <Button
+          <button
             type="button"
-            variant="outline"
             onClick={handleDemoSignIn}
             disabled={isLoading}
-            className="w-full py-2.5 border-blue-200 dark:border-blue-900/60 bg-blue-50/50 hover:bg-blue-100/60 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 font-bold rounded-2xl flex items-center justify-center gap-2 text-xs shadow-sm transition"
+            className="w-full py-2.5 px-4 border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 hover:bg-blue-600 dark:bg-blue-950/40 dark:hover:bg-blue-600 text-blue-700 dark:text-blue-300 hover:text-white dark:hover:text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-xs shadow-sm hover:shadow-md hover:shadow-blue-500/20 transition-all duration-200 group"
           >
-            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            Instant 1-Click Test Drive (Demo Mode)
-          </Button>
+            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:text-white transition-colors" />
+            <span>Instant 1-Click Test Drive (Demo Mode)</span>
+          </button>
 
           <div className="relative my-2">
             <div className="absolute inset-0 flex items-center">
