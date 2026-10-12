@@ -164,11 +164,16 @@ export default function SignUpPage() {
             <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-xl p-2 border border-white/20 flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg">
               <Image src="/logo.svg" alt="PrepSmart AI Logo" width={32} height={32} />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-2xl tracking-tight text-white">
-                PrepSmart
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-2xl tracking-tight text-white flex items-center">
+                <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 bg-clip-text text-transparent font-black">
+                  Prep
+                </span>
+                <span className="text-white font-extrabold ml-0.5">
+                  Smart
+                </span>
               </span>
-              <span className="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-2 py-0.5 rounded-full shadow-sm">
+              <span className="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-violet-600 to-purple-600 px-2 py-0.5 rounded-full shadow-md shadow-purple-500/30">
                 AI 2.0
               </span>
             </div>
@@ -269,10 +274,18 @@ export default function SignUpPage() {
         <div className="w-full max-w-md space-y-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl p-8 sm:p-10 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 relative z-10">
           
           {/* Mobile Logo Header */}
-          <div className="lg:hidden flex items-center gap-2.5 justify-center mb-1">
+          <div className="lg:hidden flex items-center gap-2 justify-center mb-1">
             <Image src="/logo.svg" alt="PrepSmart AI Logo" width={32} height={32} />
-            <span className="font-extrabold text-xl text-slate-900 dark:text-white">
-              PrepSmart <span className="text-blue-600">AI 2.0</span>
+            <span className="font-extrabold text-xl tracking-tight flex items-center">
+              <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent font-black">
+                Prep
+              </span>
+              <span className="text-slate-900 dark:text-white font-extrabold ml-0.5">
+                Smart
+              </span>
+              <span className="ml-1 text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-violet-600 to-purple-600 px-2 py-0.5 rounded-full shadow-sm">
+                AI 2.0
+              </span>
             </span>
           </div>
 

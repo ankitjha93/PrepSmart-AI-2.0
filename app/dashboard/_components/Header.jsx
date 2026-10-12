@@ -88,6 +88,92 @@ function Header() {
     gsap.to(e.currentTarget, { x: 0, y: 0, duration: 0.6, ease: "elastic.out(1.1, 0.35)" });
   };
 
+  // Brand Logo & Name Hover Interactions
+  const handleBrandEnter = (e) => {
+    const brand = e.currentTarget;
+    const logoImg = brand.querySelector('.brand-logo-img');
+    const logoAura = brand.querySelector('.brand-logo-aura');
+    const brandBadge = brand.querySelector('.brand-badge');
+    const prepText = brand.querySelector('.brand-prep-text');
+
+    if (logoImg) {
+      gsap.to(logoImg, { scale: 1.12, rotate: -6, duration: 0.3, ease: "back.out(2)" });
+    }
+    if (logoAura) {
+      gsap.to(logoAura, { opacity: 1, scale: 1.35, duration: 0.3 });
+    }
+    if (prepText) {
+      gsap.to(prepText, { scale: 1.06, duration: 0.25, ease: "power2.out" });
+    }
+    if (brandBadge) {
+      gsap.to(brandBadge, { y: -2, scale: 1.08, rotate: 3, duration: 0.25, ease: "back.out(2)" });
+    }
+  };
+
+  const handleBrandLeave = (e) => {
+    const brand = e.currentTarget;
+    const logoImg = brand.querySelector('.brand-logo-img');
+    const logoAura = brand.querySelector('.brand-logo-aura');
+    const brandBadge = brand.querySelector('.brand-badge');
+    const prepText = brand.querySelector('.brand-prep-text');
+
+    if (logoImg) {
+      gsap.to(logoImg, { scale: 1, rotate: 0, duration: 0.5, ease: "elastic.out(1.1, 0.4)" });
+    }
+    if (logoAura) {
+      gsap.to(logoAura, { opacity: 0.5, scale: 1, duration: 0.4 });
+    }
+    if (prepText) {
+      gsap.to(prepText, { scale: 1, duration: 0.3 });
+    }
+    if (brandBadge) {
+      gsap.to(brandBadge, { y: 0, scale: 1, rotate: 0, duration: 0.35, ease: "power2.out" });
+    }
+  };
+
+  // Nav Title & Icon Hover Interactions
+  const handleNavItemEnter = (e) => {
+    const link = e.currentTarget;
+    const icon = link.querySelector('.nav-icon');
+    const text = link.querySelector('.nav-text');
+    const badge = link.querySelector('.nav-badge');
+    const indicator = link.querySelector('.nav-indicator');
+
+    if (icon) {
+      gsap.to(icon, { y: -3, scale: 1.25, rotate: -8, duration: 0.25, ease: "back.out(2.5)" });
+    }
+    if (text) {
+      gsap.to(text, { y: -1, duration: 0.2, ease: "power2.out" });
+    }
+    if (badge) {
+      gsap.to(badge, { scale: 1.15, rotate: 6, duration: 0.25, ease: "back.out(2)" });
+    }
+    if (indicator) {
+      gsap.to(indicator, { scale: 1, opacity: 1, duration: 0.22, ease: "back.out(2)" });
+    }
+  };
+
+  const handleNavItemLeave = (e) => {
+    const link = e.currentTarget;
+    const icon = link.querySelector('.nav-icon');
+    const text = link.querySelector('.nav-text');
+    const badge = link.querySelector('.nav-badge');
+    const indicator = link.querySelector('.nav-indicator');
+
+    if (icon) {
+      gsap.to(icon, { y: 0, scale: 1, rotate: 0, duration: 0.4, ease: "power2.out" });
+    }
+    if (text) {
+      gsap.to(text, { y: 0, duration: 0.3 });
+    }
+    if (badge) {
+      gsap.to(badge, { scale: 1, rotate: 0, duration: 0.35, ease: "power2.out" });
+    }
+    if (indicator) {
+      gsap.to(indicator, { scale: 0, opacity: 0, duration: 0.2, ease: "power2.in" });
+    }
+  };
+
   const userInitial = user?.fullName?.[0] || user?.email?.[0]?.toUpperCase() || 'U';
 
   const navLinks = [
@@ -114,13 +200,21 @@ function Header() {
         {/* =================================================================== */}
         {/* BRAND LOGO & SYSTEM STATUS                                         */}
         {/* =================================================================== */}
-        <Link href="/" className="nav-brand flex items-center gap-3 group cursor-pointer shrink-0">
+        <Link 
+          href="/" 
+          onMouseEnter={handleBrandEnter}
+          onMouseLeave={handleBrandLeave}
+          className="nav-brand flex items-center gap-3 group cursor-pointer shrink-0"
+        >
           <div className="relative">
-            <div className="p-1 rounded-2xl bg-gradient-to-tr from-blue-600/20 via-emerald-500/20 to-blue-500/20 group-hover:scale-105 transition-all duration-300 shadow-sm border border-white/60 dark:border-slate-700">
+            {/* Luminous aura behind logo */}
+            <div className="brand-logo-aura absolute inset-0 rounded-2xl bg-gradient-to-tr from-orange-500/35 via-rose-500/25 to-purple-600/40 blur-md opacity-50 transition-all pointer-events-none" />
+            
+            <div className="brand-logo-img relative p-1 rounded-2xl bg-slate-900/5 dark:bg-white/5 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-all duration-300">
               <Image 
                 src="/logo.svg" 
-                width={36} 
-                height={36} 
+                width={38} 
+                height={38} 
                 alt="PrepSmart AI Logo" 
                 priority 
                 className="rounded-xl drop-shadow-sm"
@@ -132,16 +226,25 @@ function Header() {
 
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-xl tracking-tight text-[#0F172A] dark:text-white">
-                PrepSmart
+              <span className="flex items-center text-xl tracking-tight">
+                <span className="brand-prep-text bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 bg-clip-text text-transparent font-black">
+                  Prep
+                </span>
+                <span className="text-slate-900 dark:text-white font-extrabold ml-0.5">
+                  Smart
+                </span>
               </span>
-              <Badge variant="gradient" className="text-[10px] font-black uppercase px-2 py-0.5 shadow-sm">
+              <Badge 
+                variant="gradient" 
+                className="brand-badge text-[10px] font-black uppercase px-2 py-0.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20 border-none"
+              >
                 AI 2.0
               </Badge>
             </div>
-            <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 hidden sm:block tracking-wide -mt-0.5">
-              Adaptive Interview Intelligence
-            </span>
+            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 hidden sm:flex tracking-wide -mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span>Adaptive Interview Intelligence</span>
+            </div>
           </div>
         </Link>
 
@@ -157,24 +260,30 @@ function Header() {
                 <li key={item.name} className="nav-pill-item">
                   <Link 
                     href={item.href}
-                    className={`relative px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 ${
+                    onMouseEnter={handleNavItemEnter}
+                    onMouseLeave={handleNavItemLeave}
+                    className={`relative px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-2 group ${
                       isActive
-                        ? 'text-white bg-[#2563EB] shadow-md shadow-blue-500/25'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-[#2563EB] hover:bg-white/80 dark:hover:bg-slate-700/70'
+                        ? 'text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md shadow-blue-500/30 font-bold'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white/90 dark:hover:bg-slate-700/80'
                     }`}
                   >
-                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                    <span>{item.name}</span>
+                    <Icon className={`nav-icon w-3.5 h-3.5 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'}`} />
+                    <span className="nav-text transition-colors">{item.name}</span>
                     {item.badge && (
                       <Badge 
                         variant={isActive ? "outline" : "success"}
-                        className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0 ${
-                          isActive ? 'bg-white text-blue-600 border-none' : ''
+                        className={`nav-badge text-[9px] font-black uppercase tracking-wider px-1.5 py-0 ${
+                          isActive 
+                            ? 'bg-white text-blue-600 border-none' 
+                            : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm'
                         }`}
                       >
                         {item.badge}
                       </Badge>
                     )}
+                    {/* Animated bottom indicator dot */}
+                    <span className={`nav-indicator absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-violet-600 transition-opacity ${isActive ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
                   </Link>
                 </li>
               );
@@ -290,7 +399,9 @@ function Header() {
             <div className="flex items-center gap-2">
               <Link
                 href="/sign-in"
-                className="px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-600 dark:text-slate-200 transition"
+                onMouseMove={handleMagneticMove}
+                onMouseLeave={handleMagneticLeave}
+                className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-orange-600 dark:text-slate-200 dark:hover:text-orange-400 transition-colors rounded-full hover:bg-orange-500/10 cursor-pointer"
               >
                 Sign In
               </Link>
