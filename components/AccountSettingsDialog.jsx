@@ -24,12 +24,20 @@ import {
   Mail, 
   Fingerprint, 
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  Smartphone,
+  Laptop,
+  Calendar,
+  Globe,
+  Radio
 } from "lucide-react";
+import TwoFactorAuthDialog from "./TwoFactorAuthDialog";
 
 export default function AccountSettingsDialog({ open, onOpenChange }) {
-  const { user, isDemoUser, updateProfile, updatePassword, signOut } = useAuth();
+  const { user, isDemoUser, updateProfile, updatePassword, signOut, signOutOthers, signOutGlobal } = useAuth();
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'security' | 'session'
+  const [showTwoFactorDialog, setShowTwoFactorDialog] = useState(false);
+  const [isInvalidatingOthers, setIsInvalidatingOthers] = useState(false);
   
   // Profile state
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -112,8 +120,41 @@ export default function AccountSettingsDialog({ open, onOpenChange }) {
     await signOut();
   };
 
+  const handleSignOutOthers = async () => {
+    setIsInvalidatingOthers(true);
+    try {
+      const res = await signOutOthers();
+      if (res?.error) {
+        toast.error('Failed to invalidate sessions: ' + res.error.message);
+      } else {
+        toast.success('Successfully signed out of all other devices and tabs!');
+      }
+    } catch {
+      toast.error('Could not revoke sessions.');
+    } finally {
+      setIsInvalidatingOthers(false);
+    }
+  };
+
+  const handleSignOutGlobal = async () => {
+    onOpenChange(false);
+    toast.info('Terminating all sessions across all devices...');
+    await signOutGlobal();
+  };
+
+  // Format candidate metadata
+  const provider = user?.app_metadata?.provider || (isDemoUser ? 'demo' : 'email');
+  const isEmailVerified = Boolean(user?.email_confirmed_at || isDemoUser);
+  const createdAtFormatted = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    : 'Recent';
+  const lastSignInFormatted = user?.last_sign_in_at
+    ? new Date(user.last_sign_in_at).toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })
+    : 'Active now';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl p-0 overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl">
         
         {/* Header */}
@@ -310,28 +351,128 @@ export default function AccountSettingsDialog({ open, onOpenChange }) {
                   )}
                 </Button>
               </div>
+
+              {/* 2FA Card */}
+              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 flex items-center justify-between gap-3 mt-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-slate-900 dark:text-white">
+                        Two-Factor Authentication (TOTP)
+                      </span>
+                      <Badge variant="outline" className="text-[10px] py-0">
+                        MFA Ready
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Add an authenticator app (Google Authenticator, Authy, 1Password) for enhanced security.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTwoFactorDialog(true)}
+                  className="text-xs font-bold rounded-xl shrink-0 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950"
+                >
+                  Configure 2FA
+                </Button>
+              </div>
             </form>
           )}
 
-          {/* TAB 3: SESSION & TIER */}
+          {/* TAB 3: SESSION, AUDIT & DEVICES */}
           {activeTab === 'session' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Authentication Mode</span>
-                  <Badge variant={isDemoUser ? "warning" : "default"} className="text-xs font-bold">
-                    {isDemoUser ? "Demo Candidate" : "Personal Account"}
+              {/* Security Audit Information */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-2.5">
+                <div className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
+                  <span>Security & Account Metadata</span>
+                  <Badge variant="blue" className="text-[10px] py-0">
+                    Audited
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Candidate Plan</span>
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Free Practice Tier (Upgrade Available)</span>
+                
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Auth Provider</span>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 capitalize">
+                      <Globe className="w-3.5 h-3.5 text-indigo-500" />
+                      {provider}
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Email Status</span>
+                    <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {isEmailVerified ? 'Verified' : 'Pending'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Member Since</span>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      {createdAtFormatted}
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Last Activity</span>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+                      {lastSignInFormatted}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Audio & Video Processing</span>
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" /> 100% Client-Side
-                  </span>
+              </div>
+
+              {/* Multi-Device Session Invalidation */}
+              <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <Laptop className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                      Multi-Device Session Invalidation
+                    </span>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Notice suspicious logins? Invalidate all other active sessions while remaining signed in here.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isInvalidatingOthers}
+                    onClick={handleSignOutOthers}
+                    className="text-xs font-bold rounded-xl border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100/60 dark:hover:bg-amber-950/50"
+                  >
+                    {isInvalidatingOthers ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Revoking...
+                      </span>
+                    ) : (
+                      'Sign Out All Other Devices'
+                    )}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleSignOutGlobal}
+                    className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold rounded-xl"
+                  >
+                    Sign Out Everywhere
+                  </Button>
                 </div>
               </div>
 
@@ -355,7 +496,7 @@ export default function AccountSettingsDialog({ open, onOpenChange }) {
                   className="text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border-red-200 dark:border-red-900/50 font-bold rounded-xl"
                 >
                   <LogOut className="w-3.5 h-3.5 mr-1.5" />
-                  Sign Out of Account
+                  Sign Out of This Browser
                 </Button>
 
                 <Button
@@ -371,5 +512,12 @@ export default function AccountSettingsDialog({ open, onOpenChange }) {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Standalone 2FA Dialog */}
+    <TwoFactorAuthDialog
+      open={showTwoFactorDialog}
+      onOpenChange={setShowTwoFactorDialog}
+    />
+  </>
   );
 }

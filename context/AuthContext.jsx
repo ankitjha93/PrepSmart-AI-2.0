@@ -315,6 +315,95 @@ export function AuthProvider({ children }) {
     return { error: null };
   };
 
+  const signOutOthers = async () => {
+    if (isConfigured && supabase?.auth?.signOut) {
+      try {
+        const res = await supabase.auth.signOut({ scope: 'others' });
+        return res;
+      } catch (err) {
+        return { error: err };
+      }
+    }
+    return { data: {}, error: null };
+  };
+
+  const signOutGlobal = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('prepsmart_demo_user');
+      localStorage.setItem('prepsmart_auth_sync', `signout-${Date.now()}`);
+      document.cookie = 'prepsmart_demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'prepsmart_user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    }
+    setUser(null);
+    setSession(null);
+    if (isConfigured && supabase?.auth?.signOut) {
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch {}
+    }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/sign-in';
+    } else {
+      router.push('/sign-in');
+    }
+    return { error: null };
+  };
+
+  const getMfaFactors = async () => {
+    if (!isConfigured || !supabase?.auth?.mfa) {
+      return { data: { all: [], totp: [] }, error: null };
+    }
+    return await supabase.auth.mfa.listFactors();
+  };
+
+  const enrollTotp = async (friendlyName = 'PrepSmart Authenticator') => {
+    if (!isConfigured || !supabase?.auth?.mfa) {
+      return {
+        data: {
+          id: 'demo-factor-totp',
+          type: 'totp',
+          totp: {
+            secret: 'JBSWY3DPEHPK3PXP',
+            qr_code: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="100%" height="100%" fill="white"/><text x="50%" y="50%" font-size="14" text-anchor="middle" fill="black">Demo Authenticator QR</text></svg>',
+            uri: 'otpauth://totp/PrepSmart:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=PrepSmart'
+          }
+        },
+        error: null
+      };
+    }
+    return await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName,
+    });
+  };
+
+  const verifyTotp = async (factorId, code) => {
+    if (!isConfigured || !supabase?.auth?.mfa) {
+      return { data: { verified: true }, error: null };
+    }
+    const challengeRes = await supabase.auth.mfa.challenge({ factorId });
+    if (challengeRes.error) return challengeRes;
+    return await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challengeRes.data.id,
+      code,
+    });
+  };
+
+  const unenrollTotp = async (factorId) => {
+    if (!isConfigured || !supabase?.auth?.mfa) {
+      return { data: { id: factorId }, error: null };
+    }
+    return await supabase.auth.mfa.unenroll({ factorId });
+  };
+
+  const getAal = async () => {
+    if (!isConfigured || !supabase?.auth?.mfa) {
+      return { data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null };
+    }
+    return await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  };
+
   const isDemoUser = Boolean(
     user && (user.id?.startsWith('demo') || (typeof document !== 'undefined' && document.cookie.includes('prepsmart_demo_session=true')))
   );
@@ -337,6 +426,13 @@ export function AuthProvider({ children }) {
         updateProfile,
         resendVerificationEmail,
         signOut,
+        signOutOthers,
+        signOutGlobal,
+        getMfaFactors,
+        enrollTotp,
+        verifyTotp,
+        unenrollTotp,
+        getAal,
         supabase,
       }}
     >
