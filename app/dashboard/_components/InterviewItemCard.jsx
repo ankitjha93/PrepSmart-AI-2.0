@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
 import React from 'react'
-import { Calendar, Briefcase, Award, ArrowUpRight } from 'lucide-react'
+import { Calendar, Briefcase, Award, ArrowUpRight, BarChart3, Clock, Sparkles } from 'lucide-react'
 
 function InterviewItemCard({ interview }) {
     const router = useRouter();
@@ -15,49 +17,61 @@ function InterviewItemCard({ interview }) {
     };
     
     return (
-        <div className='interview-card group relative p-5 rounded-2xl bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700/80 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between'>
-            <div>
-                {/* Header with Experience badge */}
-                <div className='flex items-start justify-between gap-2 mb-3'>
-                    <div className='flex items-center gap-2'>
-                        <div className='p-2 rounded-xl bg-primary/10 text-primary'>
+        <Card className='interview-card group relative p-0 overflow-hidden bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between rounded-3xl'>
+            {/* Top gradient highlight on hover */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            <CardHeader className="p-6 pb-3">
+                <div className='flex items-start justify-between gap-2'>
+                    <div className='flex items-center gap-2.5'>
+                        <div className='w-9 h-9 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/60 dark:border-blue-900/60 shadow-sm group-hover:scale-105 transition-transform'>
                             <Briefcase className='w-4 h-4' />
                         </div>
-                        <h3 className='font-bold text-lg text-gray-900 dark:text-white tracking-tight line-clamp-1 group-hover:text-primary transition-colors'>
-                            {interview?.jobPosition}
-                        </h3>
+                        <div>
+                            <CardTitle className='font-bold text-base text-slate-900 dark:text-white tracking-tight line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'>
+                                {interview?.jobPosition}
+                            </CardTitle>
+                        </div>
                     </div>
-                    <span className='inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-secondary text-primary border'>
+                    <Badge variant="blue" className="text-[11px] font-semibold shrink-0">
                         {interview?.jobExperience} Yrs Exp
-                    </span>
+                    </Badge>
                 </div>
+            </CardHeader>
 
-                {/* Date */}
-                <div className='flex items-center gap-1.5 text-xs text-gray-400 mb-5'>
-                    <Calendar className='w-3.5 h-3.5' />
-                    <span>Created on {interview?.createdAt || 'Recently'}</span>
+            <CardContent className="px-6 py-2">
+                <div className='flex items-center gap-4 text-xs text-slate-400'>
+                    <div className="flex items-center gap-1.5">
+                        <Calendar className='w-3.5 h-3.5' />
+                        <span>{interview?.createdAt || 'Recently created'}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                        <Sparkles className="w-3 h-3" />
+                        <span>AI Ready</span>
+                    </div>
                 </div>
-            </div>
+            </CardContent>
 
-            {/* Actions */}
-            <div className='flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-gray-700/50'>
+            <CardFooter className='p-6 pt-3 flex items-center gap-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/20'>
                 <Button 
                     size="sm" 
                     variant="outline" 
-                    className="w-full text-xs font-medium rounded-xl hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white"
+                    className="w-full text-xs font-semibold rounded-xl hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white transition flex items-center justify-center gap-1.5"
                     onClick={onFeedbackPress}
                 >
-                    Feedback
+                    <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Feedback</span>
                 </Button>
                 <Button 
                     size="sm" 
-                    className="w-full text-xs font-semibold rounded-xl bg-primary text-white hover:shadow-md flex items-center justify-center gap-1"
+                    className="w-full text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-1.5"
                     onClick={onStart}
                 >
-                    Start <ArrowUpRight className='w-3.5 h-3.5' />
+                    <span>Start Mock</span>
+                    <ArrowUpRight className='w-3.5 h-3.5' />
                 </Button>
-            </div>
-        </div>
+            </CardFooter>
+        </Card>
     )
 }
 

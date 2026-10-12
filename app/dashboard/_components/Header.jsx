@@ -23,6 +23,8 @@ import {
   Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 function Header() {
   const path = usePathname();
@@ -117,9 +119,9 @@ function Header() {
               <span className="font-extrabold text-xl tracking-tight text-[#0F172A] dark:text-white">
                 PrepSmart
               </span>
-              <span className="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-2 py-0.5 rounded-full shadow-sm">
+              <Badge variant="gradient" className="text-[10px] font-black uppercase px-2 py-0.5 shadow-sm">
                 AI 2.0
-              </span>
+              </Badge>
             </div>
             <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 hidden sm:block tracking-wide -mt-0.5">
               Adaptive Interview Intelligence
@@ -148,13 +150,14 @@ function Header() {
                     <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                     <span>{item.name}</span>
                     {item.badge && (
-                      <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
-                        isActive
-                          ? 'bg-white text-blue-600'
-                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                      }`}>
+                      <Badge 
+                        variant={isActive ? "outline" : "success"}
+                        className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0 ${
+                          isActive ? 'bg-white text-blue-600 border-none' : ''
+                        }`}
+                      >
                         {item.badge}
-                      </span>
+                      </Badge>
                     )}
                   </Link>
                 </li>
@@ -187,9 +190,10 @@ function Header() {
                   className="flex items-center gap-2 p-1.5 pr-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition border border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900 group"
                   aria-label="User profile menu"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-500 text-white font-bold flex items-center justify-center text-xs shadow-md group-hover:scale-105 transition-transform">
-                    {userInitial}
-                  </div>
+                  <Avatar className="w-8 h-8 group-hover:scale-105 transition-transform">
+                    <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
+                    <AvatarFallback>{userInitial}</AvatarFallback>
+                  </Avatar>
                   <span className="hidden md:inline text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[110px] truncate">
                     {user.fullName || user.email}
                   </span>
@@ -204,9 +208,9 @@ function Header() {
                         <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {user.fullName || 'Candidate'}
                         </span>
-                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded">
+                        <Badge variant="success" className="text-[9px] font-black uppercase px-1.5 py-0">
                           Active
-                        </span>
+                        </Badge>
                       </div>
                       <p className="text-[11px] text-slate-500 truncate">
                         {user.email}

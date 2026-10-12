@@ -1,6 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "./dashboard/_components/Header";
@@ -32,7 +37,12 @@ import {
   ChevronUp,
   Video,
   Database,
-  Radio
+  Radio,
+  Cpu,
+  Target,
+  Flame,
+  Bot,
+  BarChart3
 } from "lucide-react";
 
 // Interactive Simulation Data for 5 Key Tech Roles
@@ -310,14 +320,14 @@ export default function Home() {
       <section className="relative pt-12 pb-16 px-6 max-w-6xl mx-auto text-center z-10">
         
         {/* Top Floating Pill Badge */}
-        <div className="hero-badge inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 dark:bg-slate-800/90 border border-[#2563EB]/25 backdrop-blur-xl mb-6 shadow-sm hover:shadow-md transition-all group cursor-default">
-          <span className="flex h-2 w-2 rounded-full bg-[#10B981] animate-pulse" />
-          <span className="text-xs font-bold text-[#2563EB] dark:text-blue-400 uppercase tracking-wider">
+        <div className="hero-badge inline-flex items-center gap-2 mb-6 cursor-default flex-wrap justify-center">
+          <Badge variant="blue" className="px-3.5 py-1 text-xs font-bold rounded-full shadow-sm">
+            <span className="flex h-2 w-2 rounded-full bg-[#10B981] animate-pulse mr-1.5" />
             PrepSmart AI 2.0 Live
-          </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            • Powered by Gemini 3.5 & Supabase
-          </span>
+          </Badge>
+          <Badge variant="outline" className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-sm border-slate-200/80 dark:border-slate-700">
+            <Sparkles className="w-3 h-3 mr-1.5 text-blue-600" /> Powered by Gemini 3.5 & Supabase
+          </Badge>
         </div>
 
         {/* Hero Title with Dynamic Gradient */}
@@ -390,7 +400,7 @@ export default function Home() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-slate-900 dark:text-white">Gemini 3.5 Evaluation</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded">9.7 / 10</span>
+                <Badge variant="success" className="text-[10px] font-bold px-1.5 py-0">9.7 / 10</Badge>
               </div>
               <span className="text-[11px] text-slate-500 block">Instant latency: 1.2s</span>
             </div>
@@ -546,19 +556,28 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Three Metrics */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] text-slate-500 block">Clarity</span>
-                  <span className="text-xs font-bold text-[#0F172A] dark:text-white font-mono">{selectedRole.clarity}</span>
+              {/* Three Metrics with Animated Progress Bars */}
+              <div className="space-y-2.5 p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-500 font-medium">Clarity</span>
+                    <span className="font-bold text-slate-900 dark:text-white font-mono">{selectedRole.clarity}</span>
+                  </div>
+                  <Progress value={parseInt(selectedRole.clarity) || 94} className="h-1.5" />
                 </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] text-slate-500 block">Tech Depth</span>
-                  <span className="text-xs font-bold text-[#0F172A] dark:text-white font-mono">{selectedRole.depth}</span>
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-500 font-medium">Tech Depth</span>
+                    <span className="font-bold text-slate-900 dark:text-white font-mono">{selectedRole.depth}</span>
+                  </div>
+                  <Progress value={parseInt(selectedRole.depth) || 91} className="h-1.5" />
                 </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] text-slate-500 block">Confidence</span>
-                  <span className="text-xs font-bold text-[#0F172A] dark:text-white font-mono">{selectedRole.confidence}</span>
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-500 font-medium">Confidence</span>
+                    <span className="font-bold text-slate-900 dark:text-white font-mono">{selectedRole.confidence}</span>
+                  </div>
+                  <Progress value={parseInt(selectedRole.confidence) || 95} className="h-1.5" />
                 </div>
               </div>
 
@@ -603,18 +622,20 @@ export default function Home() {
           ].map((stat, i) => {
             const Icon = stat.icon;
             return (
-              <div 
+              <Card 
                 key={i} 
-                className="stat-box p-6 rounded-2xl glass-card border border-slate-200/80 dark:border-slate-800 text-center shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                className="stat-box p-6 border-slate-200/80 dark:border-slate-800 text-center shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
               >
-                <Icon className={`w-6 h-6 ${stat.color} mx-auto mb-3`} />
-                <h3 className="text-3xl font-extrabold text-[#0F172A] dark:text-white font-mono mb-1">
-                  {stat.metric}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  {stat.label}
-                </p>
-              </div>
+                <CardContent className="p-0">
+                  <Icon className={`w-6 h-6 ${stat.color} mx-auto mb-3`} />
+                  <h3 className="text-3xl font-extrabold text-[#0F172A] dark:text-white font-mono mb-1">
+                    {stat.metric}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {stat.label}
+                  </p>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
@@ -789,9 +810,9 @@ export default function Home() {
                 company: "Enterprise SaaS"
               }
             ].map((t, i) => (
-              <div 
+              <Card 
                 key={i} 
-                className="p-7 rounded-3xl glass-card border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+                className="p-7 rounded-3xl border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
               >
                 <div className="mb-6">
                   <div className="flex gap-1 mb-3 text-amber-500">
@@ -803,11 +824,17 @@ export default function Home() {
                     &ldquo;{t.quote}&rdquo;
                   </p>
                 </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#0F172A] dark:text-white">{t.name}</h4>
-                  <p className="text-xs text-slate-500">{t.role} • {t.company}</p>
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-9 h-9">
+                    <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(t.name)}`} alt={t.name} />
+                    <AvatarFallback>{t.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-bold text-sm text-[#0F172A] dark:text-white">{t.name}</h4>
+                    <p className="text-xs text-slate-500">{t.role} • {t.company}</p>
+                  </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>

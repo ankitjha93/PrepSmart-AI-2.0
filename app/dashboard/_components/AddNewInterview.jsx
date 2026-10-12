@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { chatSession } from '@/utils/GeminiAIModal'
-import { LoaderCircle, Plus } from 'lucide-react'
+import { LoaderCircle, Plus, Sparkles, BrainCircuit, Rocket } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { db } from '@/utils/db'
 import { MockInterview } from '@/utils/schema'
 import { v4 as uuidv4 } from 'uuid';
@@ -88,23 +89,41 @@ function AddNewInterview() {
     return (
     <div>
         <div 
-            className='group p-8 border-2 border-dashed border-[#2563EB]/30 rounded-2xl bg-gradient-to-br from-[#2563EB]/5 via-transparent to-[#2563EB]/5 hover:border-[#2563EB] hover:bg-[#2563EB]/10 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md flex flex-col items-center justify-center gap-3 min-h-[160px]'
+            className='group p-8 border-2 border-dashed border-[#2563EB]/40 hover:border-[#2563EB] rounded-3xl bg-gradient-to-br from-blue-50/50 via-white to-emerald-50/30 dark:from-blue-950/20 dark:via-slate-900 dark:to-emerald-950/10 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col items-center justify-center gap-3.5 min-h-[180px] relative overflow-hidden'
             onClick={()=>setOpenDailog(true)}
         >
-            <div className='w-12 h-12 rounded-full bg-[#2563EB]/10 group-hover:bg-[#2563EB] text-[#2563EB] group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:rotate-90 group-hover:scale-110 shadow-sm'>
+            <div className="absolute top-3 right-3">
+                <Badge variant="blue" className="text-[10px]">
+                    <Sparkles className="w-2.5 h-2.5 mr-1" /> Gemini 3.5
+                </Badge>
+            </div>
+            <div className='w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:rotate-90 group-hover:scale-110 shadow-sm'>
                 <Plus className='w-6 h-6' />
             </div>
-            <h2 className='text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#2563EB] transition-colors'>+ Add New Mock Interview</h2>
-            <p className='text-xs text-slate-500 text-center max-w-[200px]'>Generate targeted questions with Gemini 3.5 AI</p>
+            <div className="text-center">
+                <h2 className='text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'>
+                    Create New Mock Interview
+                </h2>
+                <p className='text-xs text-slate-500 mt-0.5 max-w-[210px]'>
+                    Generate FAANG-tailored questions in seconds
+                </p>
+            </div>
         </div>
         <Dialog open={openDailog} onOpenChange={setOpenDailog}>
        
-        <DialogContent className="max-w-2xl">
-            <DialogHeader >
-            <DialogTitle className="text-2xl" >Tell us more about your job interviewing</DialogTitle>
-            <DialogDescription>
-                Add Details about your job position/role, Job description and years of experience
-            </DialogDescription>
+        <DialogContent className="max-w-2xl rounded-3xl p-7">
+            <DialogHeader>
+                <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="gradient" className="text-xs">
+                        <Sparkles className="w-3 h-3 mr-1" /> AI Generator
+                    </Badge>
+                </div>
+                <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    Configure Your Mock Interview
+                </DialogTitle>
+                <DialogDescription className="text-sm text-slate-500">
+                    Specify the target position, tech stack requirements, and your experience level.
+                </DialogDescription>
             </DialogHeader>
             <form onSubmit={onSubmit}>
             <div>
