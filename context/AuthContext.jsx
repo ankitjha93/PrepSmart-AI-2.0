@@ -84,11 +84,19 @@ export function AuthProvider({ children }) {
           setLoading(false);
         }
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
           if (mounted) {
             setSession(currentSession);
             if (currentSession?.user) {
               setUser(formatUser(currentSession.user));
+              if (typeof window !== 'undefined') {
+                document.cookie = 'prepsmart_user_session=true; path=/; max-age=604800; SameSite=Lax';
+              }
+            } else if (event === 'SIGNED_OUT') {
+              if (typeof window !== 'undefined') {
+                document.cookie = 'prepsmart_user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                document.cookie = 'prepsmart_demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+              }
             }
             setLoading(false);
           }
@@ -118,6 +126,7 @@ export function AuthProvider({ children }) {
     if (res.data?.user) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('prepsmart_demo_user');
+        document.cookie = 'prepsmart_user_session=true; path=/; max-age=604800; SameSite=Lax';
       }
       setUser(formatUser(res.data.user));
     }
@@ -133,6 +142,7 @@ export function AuthProvider({ children }) {
     if (typeof window !== 'undefined') {
       localStorage.setItem('prepsmart_demo_user', JSON.stringify(demoCandidate));
       document.cookie = 'prepsmart_demo_session=true; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'prepsmart_user_session=true; path=/; max-age=604800; SameSite=Lax';
     }
     setUser(formatUser(demoCandidate));
     return { data: { user: demoCandidate }, error: null };
@@ -149,6 +159,10 @@ export function AuthProvider({ children }) {
       },
     });
     if (res.data?.user) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('prepsmart_demo_user');
+        document.cookie = 'prepsmart_user_session=true; path=/; max-age=604800; SameSite=Lax';
+      }
       setUser(formatUser(res.data.user));
     }
     return res;
@@ -158,6 +172,7 @@ export function AuthProvider({ children }) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('prepsmart_demo_user');
       document.cookie = 'prepsmart_demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'prepsmart_user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     }
     setUser(null);
     setSession(null);
@@ -168,7 +183,11 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore
     }
-    router.push('/sign-in');
+    if (typeof window !== 'undefined') {
+      window.location.href = '/sign-in';
+    } else {
+      router.push('/sign-in');
+    }
     return { error: null };
   };
 

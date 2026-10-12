@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -32,8 +32,15 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn, signInDemo } = useAuth();
+  const { user, loading, signUp, signIn, signInDemo } = useAuth();
   const router = useRouter();
+
+  // Automatically redirect if already signed in
+  useEffect(() => {
+    if (!loading && user) {
+      window.location.href = '/dashboard';
+    }
+  }, [user, loading]);
 
   // Dynamic Password Strength Meter Calculation
   const passwordStrength = useMemo(() => {
@@ -67,13 +74,13 @@ export default function SignUpPage() {
       const { data, error } = await signUp({ email, password, fullName });
       if (error) {
         toast.error(error.message || 'Failed to create account.');
+        setIsLoading(false);
       } else {
         toast.success('Account created successfully! Welcome to PrepSmart AI.');
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (err) {
       toast.error(err.message || 'An unexpected error occurred.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -82,11 +89,10 @@ export default function SignUpPage() {
     setIsLoading(true);
     try {
       signInDemo();
-      toast.success('Signed in as Demo Candidate (Ankit Jha)!');
-      router.push('/dashboard');
+      toast.success('Signed in as Demo Candidate (Ankit Jha)! Redirecting...');
+      window.location.href = '/dashboard';
     } catch (err) {
       toast.error('Demo sign-in failed.');
-    } finally {
       setIsLoading(false);
     }
   };

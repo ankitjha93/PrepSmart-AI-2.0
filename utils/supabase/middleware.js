@@ -21,41 +21,66 @@ export async function updateSession(request) {
     return supabaseResponse;
   }
 
-  const supabase = createServerClient(
-    url,
-    anonKey,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
+  let user = null;
+  try {
+    const supabase = createServerClient(
+      url,
+      anonKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+            supabaseResponse = NextResponse.next({
+              request,
+            });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            );
+          },
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
+      }
+    );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isProtectedRoute =
-    request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/forum');
+    const { data } = await supabase.auth.getUser();
+    user = data?.user || null;
+  } catch (err) {
+    // ignore
+  }
 
   const demoCookie = request.cookies.get('prepsmart_demo_session');
+  const userCookie = request.cookies.get('prepsmart_user_session');
+  const allCookies = request.cookies.getAll();
+  const hasAuthToken = allCookies.some(
+    (c) => c.name.includes('-auth-token') || c.name.startsWith('sb-')
+  );
 
-  if (isProtectedRoute && !user && !demoCookie?.value) {
+  const isAuthenticated = Boolean(user || demoCookie?.value || userCookie?.value || hasAuthToken);
+
+  const pathname = request.nextUrl.pathname;
+  const isProtectedRoute =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/forum');
+
+  const isAuthRoute =
+    pathname.startsWith('/sign-in') ||
+    pathname.startsWith('/sign-up');
+
+  // If already authenticated and visiting sign-in or sign-up, redirect immediately to dashboard
+  if (isAuthRoute && isAuthenticated) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/dashboard';
+    redirectUrl.searchParams.delete('redirectedFrom');
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // If unauthenticated trying to access protected route, redirect to sign-in
+  if (isProtectedRoute && !isAuthenticated) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/sign-in';
-    redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname);
+    redirectUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
