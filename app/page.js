@@ -345,9 +345,15 @@ export default function Home() {
             </Button>
           </Link>
           <a href="#simulator" className="hero-cta w-full sm:w-auto">
-            <Button variant="outline" size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 text-[#0F172A] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 hover:scale-105 transition-all duration-300 shadow-sm flex items-center gap-2">
-              <Play className="w-4 h-4 text-blue-600" />
-              Try Interactive Simulator
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-slate-800/90 text-[#0F172A] dark:text-white hover:bg-blue-50/90 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-400 dark:hover:border-blue-500 hover:scale-105 transition-all duration-300 shadow-sm flex items-center gap-2 group cursor-pointer"
+            >
+              <Play className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform fill-blue-600/15" />
+              <span className="text-[#0F172A] dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                Try Interactive Simulator
+              </span>
             </Button>
           </a>
         </div>

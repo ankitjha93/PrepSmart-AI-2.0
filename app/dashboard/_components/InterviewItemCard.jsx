@@ -44,7 +44,7 @@ function InterviewItemCard({ interview }) {
                 <Button 
                     size="sm" 
                     variant="outline" 
-                    className="w-full text-xs font-medium rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="w-full text-xs font-medium rounded-xl hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white"
                     onClick={onFeedbackPress}
                 >
                     Feedback
