@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { useRouter } from 'next/navigation'
 import React from 'react'
 import { Calendar, Briefcase, Award, ArrowUpRight, BarChart3, Clock, Sparkles } from 'lucide-react'
+import gsap from 'gsap'
 
 function InterviewItemCard({ interview }) {
     const router = useRouter();
@@ -15,9 +16,50 @@ function InterviewItemCard({ interview }) {
     const onFeedbackPress = () => {
         router.push('/dashboard/interview/' + interview?.mockId + "/feedback");
     };
+
+    const handleCardMouseMove = (e) => {
+        const card = e.currentTarget;
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left - rect.width / 2) / rect.width;
+        const y = (e.clientY - rect.top - rect.height / 2) / rect.height;
+        gsap.to(card, {
+            rotationY: x * 8,
+            rotationX: -y * 8,
+            y: -4,
+            transformPerspective: 800,
+            duration: 0.25,
+            ease: "power2.out"
+        });
+    };
+
+    const handleCardMouseLeave = (e) => {
+        gsap.to(e.currentTarget, {
+            rotationY: 0,
+            rotationX: 0,
+            y: 0,
+            duration: 0.6,
+            ease: "elastic.out(1.1, 0.4)"
+        });
+    };
+
+    const handleBtnMouseMove = (e) => {
+        const btn = e.currentTarget;
+        const rect = btn.getBoundingClientRect();
+        const x = (e.clientX - rect.left - rect.width / 2) * 0.3;
+        const y = (e.clientY - rect.top - rect.height / 2) * 0.3;
+        gsap.to(btn, { x, y, duration: 0.2, ease: "power2.out" });
+    };
+
+    const handleBtnMouseLeave = (e) => {
+        gsap.to(e.currentTarget, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1.1, 0.35)" });
+    };
     
     return (
-        <Card className='interview-card group relative p-0 overflow-hidden bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between rounded-3xl'>
+        <Card 
+            onMouseMove={handleCardMouseMove}
+            onMouseLeave={handleCardMouseLeave}
+            className='interview-card group relative p-0 overflow-hidden bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-sm transition-shadow rounded-3xl cursor-pointer'
+        >
             {/* Top gradient highlight on hover */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
@@ -64,7 +106,9 @@ function InterviewItemCard({ interview }) {
                 </Button>
                 <Button 
                     size="sm" 
-                    className="w-full text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-1.5"
+                    onMouseMove={handleBtnMouseMove}
+                    onMouseLeave={handleBtnMouseLeave}
+                    className="w-full text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     onClick={onStart}
                 >
                     <span>Start Mock</span>

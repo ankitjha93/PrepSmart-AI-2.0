@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { chatSession } from '@/utils/GeminiAIModal'
 import { LoaderCircle, Plus, Sparkles, BrainCircuit, Rocket } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import gsap from 'gsap'
 import { db } from '@/utils/db'
 import { MockInterview } from '@/utils/schema'
 import { v4 as uuidv4 } from 'uuid';
@@ -86,10 +87,30 @@ function AddNewInterview() {
         }
     }
 
+    const handleCardHover = (e) => {
+        const card = e.currentTarget;
+        const icon = card.querySelector(".plus-icon");
+        gsap.to(card, { y: -6, scale: 1.02, boxShadow: "0 20px 30px -10px rgba(37, 99, 235, 0.15)", duration: 0.25, ease: "power2.out" });
+        if (icon) {
+            gsap.to(icon, { rotate: 90, scale: 1.15, duration: 0.3, ease: "back.out(2)" });
+        }
+    };
+
+    const handleCardLeave = (e) => {
+        const card = e.currentTarget;
+        const icon = card.querySelector(".plus-icon");
+        gsap.to(card, { y: 0, scale: 1, boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)", duration: 0.5, ease: "elastic.out(1.1, 0.4)" });
+        if (icon) {
+            gsap.to(icon, { rotate: 0, scale: 1, duration: 0.35, ease: "power2.out" });
+        }
+    };
+
     return (
     <div>
         <div 
-            className='group p-8 border-2 border-dashed border-[#2563EB]/40 hover:border-[#2563EB] rounded-3xl bg-gradient-to-br from-blue-50/50 via-white to-emerald-50/30 dark:from-blue-950/20 dark:via-slate-900 dark:to-emerald-950/10 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col items-center justify-center gap-3.5 min-h-[180px] relative overflow-hidden'
+            onMouseEnter={handleCardHover}
+            onMouseLeave={handleCardLeave}
+            className='group p-8 border-2 border-dashed border-[#2563EB]/40 hover:border-[#2563EB] rounded-3xl bg-gradient-to-br from-blue-50/50 via-white to-emerald-50/30 dark:from-blue-950/20 dark:via-slate-900 dark:to-emerald-950/10 cursor-pointer flex flex-col items-center justify-center gap-3.5 min-h-[180px] relative overflow-hidden transition-colors'
             onClick={()=>setOpenDailog(true)}
         >
             <div className="absolute top-3 right-3">
@@ -97,7 +118,7 @@ function AddNewInterview() {
                     <Sparkles className="w-2.5 h-2.5 mr-1" /> Gemini 3.5
                 </Badge>
             </div>
-            <div className='w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:rotate-90 group-hover:scale-110 shadow-sm'>
+            <div className='plus-icon w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-colors shadow-sm'>
                 <Plus className='w-6 h-6' />
             </div>
             <div className="text-center">

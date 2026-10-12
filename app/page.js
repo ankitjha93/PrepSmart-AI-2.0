@@ -209,6 +209,39 @@ export default function Home() {
       duration: 10,
       ease: "sine.inOut"
     });
+
+    // Floating Hero Pill Widgets Organic Float
+    gsap.to(".floating-pill-widget-left", {
+      y: 8,
+      rotate: -1,
+      repeat: -1,
+      yoyo: true,
+      duration: 3.2,
+      ease: "sine.inOut"
+    });
+
+    gsap.to(".floating-pill-widget-right", {
+      y: -10,
+      rotate: 1,
+      repeat: -1,
+      yoyo: true,
+      duration: 3.8,
+      ease: "sine.inOut"
+    });
+
+    // Continuous Live Audio Equalizer Bar Oscillations
+    gsap.to(".live-wave-bar", {
+      scaleY: "random(0.35, 1.15)",
+      repeat: -1,
+      yoyo: true,
+      duration: 0.35,
+      stagger: {
+        each: 0.05,
+        repeat: -1,
+        yoyo: true
+      },
+      ease: "sine.inOut"
+    });
   }, { scope: containerRef });
 
   // Mouse spotlight coordinates
@@ -266,17 +299,45 @@ export default function Home() {
     }, 4500);
   };
 
-  // 3D Card Tilt Effect on Mouse Move
+  // GSAP Magnetic Button Hover Pull Effect
+  const handleMagneticMouseMove = (e) => {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left - rect.width / 2) * 0.35;
+    const y = (e.clientY - rect.top - rect.height / 2) * 0.35;
+    gsap.to(el, {
+      x,
+      y,
+      scale: 1.03,
+      duration: 0.25,
+      ease: "power2.out"
+    });
+  };
+
+  const handleMagneticMouseLeave = (e) => {
+    const el = e.currentTarget;
+    gsap.to(el, {
+      x: 0,
+      y: 0,
+      scale: 1,
+      duration: 0.7,
+      ease: "elastic.out(1.2, 0.35)"
+    });
+  };
+
+  // Elevated 3D Card Tilt Effect with Dynamic Shadow Bloom
   const handleCardMouseMove = (e) => {
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
     gsap.to(card, {
-      rotationY: x * 0.05,
-      rotationX: -y * 0.05,
-      transformPerspective: 800,
-      ease: "power1.out",
+      rotationY: (x / rect.width) * 16,
+      rotationX: (-y / rect.height) * 16,
+      scale: 1.025,
+      boxShadow: "0 20px 40px -15px rgba(37, 99, 235, 0.18)",
+      transformPerspective: 1000,
+      ease: "power2.out",
       duration: 0.3
     });
   };
@@ -286,9 +347,48 @@ export default function Home() {
     gsap.to(card, {
       rotationY: 0,
       rotationX: 0,
-      ease: "power2.out",
-      duration: 0.5
+      scale: 1,
+      boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)",
+      ease: "elastic.out(1, 0.4)",
+      duration: 0.8
     });
+  };
+
+  // Stat Box GSAP Hover Interaction with Icon Bounce
+  const handleStatBoxEnter = (e) => {
+    const box = e.currentTarget;
+    const icon = box.querySelector(".stat-icon");
+    gsap.to(box, { y: -8, scale: 1.03, duration: 0.25, ease: "power2.out" });
+    if (icon) {
+      gsap.to(icon, { rotate: 15, scale: 1.25, duration: 0.3, ease: "back.out(2)" });
+    }
+  };
+
+  const handleStatBoxLeave = (e) => {
+    const box = e.currentTarget;
+    const icon = box.querySelector(".stat-icon");
+    gsap.to(box, { y: 0, scale: 1, duration: 0.6, ease: "elastic.out(1.1, 0.4)" });
+    if (icon) {
+      gsap.to(icon, { rotate: 0, scale: 1, duration: 0.35, ease: "power2.out" });
+    }
+  };
+
+  // Step Tab Click with Smooth GSAP Cross-fade
+  const handleStepTabClick = (idx) => {
+    setActiveStepTab(idx);
+    gsap.fromTo(".step-showcase-content",
+      { opacity: 0, y: 15, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "power3.out" }
+    );
+  };
+
+  // Testimonial Hover Lift
+  const handleTestimonialEnter = (e) => {
+    gsap.to(e.currentTarget, { y: -6, scale: 1.02, duration: 0.3, ease: "power2.out" });
+  };
+
+  const handleTestimonialLeave = (e) => {
+    gsap.to(e.currentTarget, { y: 0, scale: 1, duration: 0.5, ease: "elastic.out(1, 0.4)" });
   };
 
   return (
@@ -343,10 +443,15 @@ export default function Home() {
           Practice role-tailored technical & behavioral mock sessions, speak naturally with live audio spectrum feedback, and receive instantaneous FAANG-calibrated AI evaluations.
         </p>
 
-        {/* Action Buttons with Shimmer Sweep */}
+        {/* Action Buttons with Shimmer Sweep and GSAP Magnetic Pull */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
           <Link href="/dashboard" className="hero-cta w-full sm:w-auto">
-            <Button size="lg" className="relative overflow-hidden w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl shadow-xl hover:shadow-[#2563EB]/30 hover:scale-105 transition-all duration-300 bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center gap-2 group">
+            <Button 
+              size="lg" 
+              onMouseMove={handleMagneticMouseMove}
+              onMouseLeave={handleMagneticMouseLeave}
+              className="relative overflow-hidden w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl shadow-xl hover:shadow-[#2563EB]/35 transition-all duration-200 bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center gap-2 group cursor-pointer"
+            >
               <span className="relative z-10 flex items-center gap-2">
                 Start Practicing Free
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
@@ -358,7 +463,9 @@ export default function Home() {
             <Button 
               variant="outline" 
               size="lg" 
-              className="w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-slate-800/90 text-[#0F172A] dark:text-white hover:bg-blue-50/90 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-400 dark:hover:border-blue-500 hover:scale-105 transition-all duration-300 shadow-sm flex items-center gap-2 group cursor-pointer"
+              onMouseMove={handleMagneticMouseMove}
+              onMouseLeave={handleMagneticMouseLeave}
+              className="w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl border-slate-300 dark:border-slate-700 bg-white/95 dark:bg-slate-800/90 text-[#0F172A] dark:text-white hover:bg-blue-50/90 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200 shadow-sm flex items-center gap-2 group cursor-pointer"
             >
               <Play className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform fill-blue-600/15" />
               <span className="text-[#0F172A] dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -371,7 +478,7 @@ export default function Home() {
         {/* Floating High-Tech Live Badges Framing the Hero */}
         <div className="relative max-w-4xl mx-auto mb-6 hidden md:block">
           {/* Left Floating Badge: Voice Visualizer */}
-          <div className="floating-pill-widget animate-float-slow absolute -top-8 -left-12 p-3 px-4 rounded-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xl backdrop-blur-xl flex items-center gap-3 z-20 text-left">
+          <div className="floating-pill-widget floating-pill-widget-left absolute -top-8 -left-12 p-3 px-4 rounded-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xl backdrop-blur-xl flex items-center gap-3 z-20 text-left">
             <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] flex items-center justify-center shadow-inner">
               <Mic className="w-4 h-4" />
             </div>
@@ -385,7 +492,7 @@ export default function Home() {
                   <span 
                     key={i} 
                     style={{ height: `${h}%` }} 
-                    className="w-1 rounded-full bg-gradient-to-t from-blue-600 to-emerald-400 animate-wave-bar" 
+                    className="live-wave-bar w-1 rounded-full bg-gradient-to-t from-blue-600 to-emerald-400" 
                   />
                 ))}
               </div>
@@ -393,7 +500,7 @@ export default function Home() {
           </div>
 
           {/* Right Floating Badge: Gemini 3.5 AI Score */}
-          <div className="floating-pill-widget animate-float-delayed absolute -top-6 -right-12 p-3 px-4 rounded-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xl backdrop-blur-xl flex items-center gap-3 z-20 text-left">
+          <div className="floating-pill-widget floating-pill-widget-right absolute -top-6 -right-12 p-3 px-4 rounded-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xl backdrop-blur-xl flex items-center gap-3 z-20 text-left">
             <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shadow-inner">
               <Sparkles className="w-4 h-4" />
             </div>
@@ -624,10 +731,14 @@ export default function Home() {
             return (
               <Card 
                 key={i} 
-                className="stat-box p-6 border-slate-200/80 dark:border-slate-800 text-center shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                onMouseEnter={handleStatBoxEnter}
+                onMouseLeave={handleStatBoxLeave}
+                className="stat-box p-6 border-slate-200/80 dark:border-slate-800 text-center shadow-sm cursor-pointer transition-colors"
               >
                 <CardContent className="p-0">
-                  <Icon className={`w-6 h-6 ${stat.color} mx-auto mb-3`} />
+                  <div className="inline-flex p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700 mb-3 shadow-inner">
+                    <Icon className={`stat-icon w-6 h-6 ${stat.color}`} />
+                  </div>
                   <h3 className="text-3xl font-extrabold text-[#0F172A] dark:text-white font-mono mb-1">
                     {stat.metric}
                   </h3>
@@ -658,11 +769,11 @@ export default function Home() {
             {PLATFORM_STEPS.map((step, idx) => (
               <div
                 key={idx}
-                onClick={() => setActiveStepTab(idx)}
+                onClick={() => handleStepTabClick(idx)}
                 className={`p-6 rounded-3xl border transition-all duration-300 cursor-pointer ${
                   activeStepTab === idx
-                    ? 'bg-white dark:bg-slate-900 border-blue-500 shadow-xl ring-2 ring-blue-500/20'
-                    : 'bg-white/60 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800 hover:bg-white'
+                    ? 'bg-white dark:bg-slate-900 border-blue-500 shadow-xl ring-2 ring-blue-500/20 scale-[1.02]'
+                    : 'bg-white/60 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800 hover:bg-white hover:scale-[1.01]'
                 }`}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -671,9 +782,9 @@ export default function Home() {
                   }`}>
                     {step.step}
                   </span>
-                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300">
+                  <Badge variant={activeStepTab === idx ? "blue" : "outline"} className="text-[11px] font-bold">
                     {step.badge}
-                  </span>
+                  </Badge>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
                   {step.title}
@@ -686,7 +797,7 @@ export default function Home() {
           </div>
 
           {/* Stepper Active Feature Showcase Banner */}
-          <div className="p-8 rounded-3xl bg-gradient-to-r from-blue-900 via-slate-900 to-slate-950 text-white border border-slate-800 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="step-showcase-content p-8 rounded-3xl bg-gradient-to-r from-blue-900 via-slate-900 to-slate-950 text-white border border-slate-800 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
               <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-emerald-400" /> Active Platform Step: {PLATFORM_STEPS[activeStepTab].title}
@@ -700,7 +811,12 @@ export default function Home() {
             </div>
 
             <Link href="/dashboard">
-              <Button size="lg" className="rounded-2xl px-6 py-6 bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg flex items-center gap-2 shrink-0">
+              <Button 
+                size="lg" 
+                onMouseMove={handleMagneticMouseMove}
+                onMouseLeave={handleMagneticMouseLeave}
+                className="rounded-2xl px-6 py-6 bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg flex items-center gap-2 shrink-0 cursor-pointer"
+              >
                 <span>Start Step {PLATFORM_STEPS[activeStepTab].step} Now</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
@@ -812,7 +928,9 @@ export default function Home() {
             ].map((t, i) => (
               <Card 
                 key={i} 
-                className="p-7 rounded-3xl border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+                onMouseEnter={handleTestimonialEnter}
+                onMouseLeave={handleTestimonialLeave}
+                className="p-7 rounded-3xl border-slate-200/80 dark:border-slate-800 shadow-sm cursor-pointer flex flex-col justify-between"
               >
                 <div className="mb-6">
                   <div className="flex gap-1 mb-3 text-amber-500">
@@ -899,7 +1017,12 @@ export default function Home() {
             </p>
             <div>
               <Link href="/dashboard">
-                <Button size="lg" className="px-8 py-6 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold hover:scale-105 transition-all shadow-xl flex items-center gap-2 mx-auto">
+                <Button 
+                  size="lg" 
+                  onMouseMove={handleMagneticMouseMove}
+                  onMouseLeave={handleMagneticMouseLeave}
+                  className="px-8 py-6 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold transition-all shadow-xl flex items-center gap-2 mx-auto cursor-pointer"
+                >
                   <span>Start Practicing for Free</span>
                   <ArrowRight className="w-5 h-5" />
                 </Button>

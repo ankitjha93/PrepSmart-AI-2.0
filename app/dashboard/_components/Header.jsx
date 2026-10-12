@@ -72,6 +72,19 @@ function Header() {
     setMobileMenuOpen(false);
   }, [path]);
 
+  // GSAP Magnetic Button Effect
+  const handleMagneticMove = (e) => {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left - rect.width / 2) * 0.3;
+    const y = (e.clientY - rect.top - rect.height / 2) * 0.3;
+    gsap.to(el, { x, y, duration: 0.2, ease: "power2.out" });
+  };
+
+  const handleMagneticLeave = (e) => {
+    gsap.to(e.currentTarget, { x: 0, y: 0, duration: 0.6, ease: "elastic.out(1.1, 0.35)" });
+  };
+
   const userInitial = user?.fullName?.[0] || user?.email?.[0]?.toUpperCase() || 'U';
 
   const navLinks = [
@@ -176,7 +189,9 @@ function Header() {
               <Link href="/dashboard" className="hidden sm:inline-flex">
                 <Button 
                   size="sm" 
-                  className="rounded-full px-3.5 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800 shadow-sm transition flex items-center gap-1.5"
+                  onMouseMove={handleMagneticMove}
+                  onMouseLeave={handleMagneticLeave}
+                  className="rounded-full px-3.5 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800 shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New Mock</span>
@@ -263,7 +278,9 @@ function Header() {
               <Link href="/sign-up">
                 <Button 
                   size="sm" 
-                  className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-full shadow-md shadow-blue-500/20 hover:scale-105 transition-all flex items-center gap-1.5"
+                  onMouseMove={handleMagneticMove}
+                  onMouseLeave={handleMagneticLeave}
+                  className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-full shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>Get Started Free</span>
                   <ArrowRight className="w-3.5 h-3.5" />

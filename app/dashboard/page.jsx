@@ -31,6 +31,24 @@ function Dashboard() {
     });
   }, { scope: dashRef });
 
+  const handleStatHover = (e) => {
+    const card = e.currentTarget;
+    const icon = card.querySelector(".stat-card-icon");
+    gsap.to(card, { y: -6, scale: 1.025, boxShadow: "0 20px 25px -5px rgba(37, 99, 235, 0.12)", duration: 0.25, ease: "power2.out" });
+    if (icon) {
+      gsap.to(icon, { rotate: 12, scale: 1.15, duration: 0.25, ease: "back.out(2)" });
+    }
+  };
+
+  const handleStatLeave = (e) => {
+    const card = e.currentTarget;
+    const icon = card.querySelector(".stat-card-icon");
+    gsap.to(card, { y: 0, scale: 1, boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)", duration: 0.5, ease: "elastic.out(1.1, 0.4)" });
+    if (icon) {
+      gsap.to(icon, { rotate: 0, scale: 1, duration: 0.35, ease: "power2.out" });
+    }
+  };
+
   const candidateStats = [
     {
       label: "AI Evaluation Index",
@@ -95,10 +113,15 @@ function Dashboard() {
         {candidateStats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
-            <Card key={idx} className="p-5 hover:shadow-lg transition-all duration-300 border-slate-200/80 dark:border-slate-800">
+            <Card 
+              key={idx} 
+              onMouseEnter={handleStatHover}
+              onMouseLeave={handleStatLeave}
+              className="p-5 cursor-pointer transition-colors border-slate-200/80 dark:border-slate-800"
+            >
               <CardContent className="p-0">
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${stat.iconBg}`}>
+                  <div className={`stat-card-icon w-10 h-10 rounded-2xl flex items-center justify-center border ${stat.iconBg}`}>
                     <Icon className="w-5 h-5" />
                   </div>
                   <Badge variant={stat.badgeVariant} className="text-[10px] font-bold">
