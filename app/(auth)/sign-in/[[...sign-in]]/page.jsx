@@ -7,13 +7,27 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ArrowRight, Lock, Mail, Sparkles, CheckCircle2, Loader2, KeyRound } from 'lucide-react';
+import { 
+  ArrowRight, 
+  Lock, 
+  Mail, 
+  Sparkles, 
+  CheckCircle2, 
+  Loader2, 
+  Eye, 
+  EyeOff, 
+  Mic, 
+  Star, 
+  Activity, 
+  ShieldCheck 
+} from 'lucide-react';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, isConfigured } = useAuth();
+  const { signIn } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get('redirectedFrom') || '/dashboard';
@@ -45,7 +59,7 @@ export default function SignInPage() {
     setIsLoading(true);
     try {
       await signIn({ email: '93ankitjha@gmail.com', password: 'demo-password' });
-      toast.success('Logged in as Demo User (Ankit Jha)!');
+      toast.success('Signed in as Demo Candidate (Ankit Jha)!');
       router.push(redirectedFrom);
     } catch (err) {
       toast.error('Demo sign-in failed.');
@@ -55,93 +69,171 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Left Showcase Banner */}
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 relative overflow-hidden flex-col justify-between p-12 text-white border-r border-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 via-slate-900 to-slate-950 pointer-events-none" />
-        <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col lg:flex-row bg-grid-pattern selection:bg-blue-500 selection:text-white">
+      
+      {/* ===================================================================== */}
+      {/* LEFT SHOWCASE PANEL                                                   */}
+      {/* ===================================================================== */}
+      <div className="hidden lg:flex lg:w-1/2 bg-[#0F172A] relative overflow-hidden flex-col justify-between p-12 text-white border-r border-slate-800">
+        
+        {/* Ambient Gradient Orbs */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-[#0F172A] to-slate-950 pointer-events-none" />
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-600/15 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
 
+        {/* Brand Header */}
         <div className="relative z-10">
           <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-md p-2 border border-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-xl p-2 border border-white/20 flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg">
               <Image src="/logo.svg" alt="PrepSmart AI Logo" width={32} height={32} />
             </div>
-            <span className="font-bold text-2xl tracking-tight text-white">
-              PrepSmart <span className="text-blue-400">AI</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-2xl tracking-tight text-white">
+                PrepSmart
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-2 py-0.5 rounded-full shadow-sm">
+                AI 2.0
+              </span>
+            </div>
           </Link>
         </div>
 
-        <div className="relative z-10 max-w-lg space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-medium">
+        {/* Central Content with Live Mock Session Widget */}
+        <div className="relative z-10 max-w-lg space-y-6 my-auto py-8">
+          
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-semibold backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            Supabase Auth & PostgreSQL Powered
+            Supabase Auth & Multi-Model Gemini 3.5 AI
           </div>
 
-          <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="text-4xl font-black tracking-tight text-white leading-tight">
             Nail your next interview with real-time AI guidance.
           </h1>
 
-          <p className="text-slate-300 text-base leading-relaxed">
+          <p className="text-slate-300 text-sm md:text-base leading-relaxed">
             Practice job-specific technical and behavioral questions, capture audio answers with live spectrum visualization, and receive instantaneous feedback from Google Gemini.
           </p>
 
-          <div className="space-y-3 pt-4 border-t border-slate-800/80">
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Personalized interview questions tailored to your experience</span>
+          {/* Interactive Floating Live Session Card */}
+          <div className="rounded-2xl p-5 bg-slate-900/80 border border-slate-700/80 shadow-2xl backdrop-blur-xl space-y-3.5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400" />
+            
+            {/* Header with Live Mic Indicator */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold text-slate-200">Full Stack System Architecture</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-bold border border-emerald-500/30">
+                <Star className="w-3 h-3 fill-emerald-400" />
+                <span>9.7 / 10</span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Real-time speech-to-text recording with live audio visualizer</span>
+
+            {/* Question Snippet */}
+            <p className="text-xs text-slate-300 font-medium italic bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
+              &ldquo;How do you optimize distributed cache invalidation during rapid database mutations?&rdquo;
+            </p>
+
+            {/* Live Audio Spectrum Equalizer */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                  <Mic className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex items-end gap-1 h-4">
+                  {[30, 85, 45, 100, 70, 40, 90, 60, 95, 50, 75, 40].map((h, i) => (
+                    <span 
+                      key={i} 
+                      style={{ height: `${h}%` }} 
+                      className="w-1 rounded-full bg-gradient-to-t from-blue-500 to-emerald-400 animate-wave-bar" 
+                    />
+                  ))}
+                </div>
+              </div>
+              <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                <Activity className="w-3.5 h-3.5 animate-spin" /> Speech Transcribed
+              </span>
             </div>
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Detailed rating, strengths, and areas for improvement</span>
+          </div>
+
+          {/* Social Proof Avatar Stack */}
+          <div className="flex items-center gap-3 pt-2">
+            <div className="flex -space-x-2">
+              {['alex', 'priya', 'marcus', 'sara'].map((seed, i) => (
+                <img 
+                  key={i}
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=2563eb,10b981,6366f1,0f172a`} 
+                  alt="Candidate Avatar"
+                  className="w-8 h-8 rounded-full border-2 border-[#0F172A] shadow-sm"
+                />
+              ))}
+            </div>
+            <div className="text-xs text-slate-300">
+              <span className="font-bold text-white">15,000+ candidates</span> practicing for top-tier tech offers
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 text-xs text-slate-400 flex items-center justify-between border-t border-slate-800/60 pt-6">
+        {/* Footer Meta */}
+        <div className="relative z-10 text-xs text-slate-400 flex items-center justify-between border-t border-slate-800/80 pt-6">
           <span>&copy; {new Date().getFullYear()} PrepSmart AI. All rights reserved.</span>
-          <span className="text-slate-400">Secure Supabase Authentication</span>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            Supabase Protected
+          </span>
         </div>
       </div>
 
-      {/* Right Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-slate-200/80">
+      {/* ===================================================================== */}
+      {/* RIGHT AUTH CARD FORM                                                  */}
+      {/* ===================================================================== */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative">
+        <div className="w-full max-w-md space-y-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl p-8 sm:p-10 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 relative z-10">
+          
           {/* Mobile Logo Header */}
-          <div className="lg:hidden flex items-center gap-2.5 justify-center mb-2">
+          <div className="lg:hidden flex items-center gap-2.5 justify-center mb-1">
             <Image src="/logo.svg" alt="PrepSmart AI Logo" width={32} height={32} />
-            <span className="font-bold text-xl text-slate-900">
-              PrepSmart <span className="text-blue-600">AI</span>
+            <span className="font-extrabold text-xl text-slate-900 dark:text-white">
+              PrepSmart <span className="text-blue-600">AI 2.0</span>
             </span>
           </div>
 
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <div className="text-center space-y-1.5">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               Sign In to Your Account
             </h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               Enter your credentials to access your mock interview dashboard.
             </p>
           </div>
 
-          {!isConfigured && (
-            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2.5">
-              <KeyRound className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold block">Supabase Setup Ready:</span>
-                Add your Supabase URL & Key to <code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">.env.local</code>. Meanwhile, test-drive freely using the Demo sign-in below!
-              </div>
+          {/* Quick 1-Click Demo Candidate Bypass */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDemoLogin}
+            disabled={isLoading}
+            className="w-full py-2.5 border-blue-200 dark:border-blue-900/60 bg-blue-50/50 hover:bg-blue-100/60 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 font-bold rounded-2xl flex items-center justify-center gap-2 text-xs shadow-sm transition"
+          >
+            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            Instant 1-Click Test Drive (Demo Candidate)
+          </Button>
+
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-200 dark:border-slate-800" />
             </div>
-          )}
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 font-medium">Or continue with email</span>
+            </div>
+          </div>
 
           <form onSubmit={handleSignIn} className="space-y-4">
+            
+            {/* Email Address */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                 Email Address
               </label>
               <div className="relative">
@@ -152,74 +244,70 @@ export default function SignInPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white dark:focus:bg-slate-900 transition"
                 />
               </div>
             </div>
 
+            {/* Password */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Password
-                </label>
-              </div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Password
+              </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white dark:focus:bg-slate-900 transition"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
+            {/* Submit Button with Shimmer Sweep */}
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2"
+              className="relative overflow-hidden w-full py-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-xl shadow-blue-500/25 transition-all group mt-2"
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Signing In...</span>
-                </>
-              ) : (
-                <>
-                  <span>Sign In</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </span>
+              <span className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-1000 ease-out pointer-events-none" />
             </Button>
           </form>
 
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-slate-400 font-medium">Or quick demo</span>
-            </div>
+          {/* Privacy Guarantee Micro-Copy */}
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 text-center flex items-center justify-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span>Camera feeds run 100% locally and are never stored or recorded.</span>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleDemoLogin}
-            disabled={isLoading}
-            className="w-full py-2.5 border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-xl flex items-center justify-center gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-blue-600" />
-            Continue as Guest / Demo Candidate
-          </Button>
-
-          <div className="text-center text-sm text-slate-500 pt-2">
+          <div className="text-center text-xs text-slate-500 pt-1">
             Don&apos;t have an account yet?{' '}
             <Link
               href="/sign-up"
-              className="text-blue-600 hover:text-blue-700 font-semibold hover:underline"
+              className="text-blue-600 hover:text-blue-700 font-bold hover:underline"
             >
               Create Account
             </Link>
