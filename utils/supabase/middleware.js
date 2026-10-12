@@ -66,9 +66,10 @@ export async function updateSession(request) {
 
   const isAuthRoute =
     pathname.startsWith('/sign-in') ||
-    pathname.startsWith('/sign-up');
+    pathname.startsWith('/sign-up') ||
+    pathname.startsWith('/forgot-password');
 
-  // If already authenticated and visiting sign-in or sign-up, redirect immediately to dashboard
+  // If already authenticated and visiting auth entry pages, redirect immediately to dashboard
   if (isAuthRoute && isAuthenticated) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/dashboard';
@@ -76,11 +77,13 @@ export async function updateSession(request) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If unauthenticated trying to access protected route, redirect to sign-in
+  // If unauthenticated trying to access protected route, redirect to sign-in safely
   if (isProtectedRoute && !isAuthenticated) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/sign-in';
-    redirectUrl.searchParams.set('redirectedFrom', pathname);
+    // Protect against open redirect: ensure path is safe
+    const safeTarget = pathname.startsWith('/') && !pathname.startsWith('//') ? pathname : '/dashboard';
+    redirectUrl.searchParams.set('redirectedFrom', safeTarget);
     return NextResponse.redirect(redirectUrl);
   }
 

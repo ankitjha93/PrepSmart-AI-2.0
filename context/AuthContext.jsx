@@ -168,6 +168,54 @@ export function AuthProvider({ children }) {
     return res;
   };
 
+  const signInWithOAuth = async ({ provider, redirectTo = '/dashboard' }) => {
+    if (!isConfigured) {
+      return signInDemo();
+    }
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+    const res = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: callbackUrl,
+      },
+    });
+    return res;
+  };
+
+  const resetPassword = async (email) => {
+    if (!isConfigured) {
+      return { data: {}, error: null };
+    }
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectTo = `${origin}/auth/callback?next=/reset-password`;
+    const res = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    return res;
+  };
+
+  const updatePassword = async (newPassword) => {
+    if (!isConfigured) {
+      return { data: {}, error: null };
+    }
+    const res = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    return res;
+  };
+
+  const resendVerificationEmail = async (email) => {
+    if (!isConfigured) {
+      return { data: {}, error: null };
+    }
+    const res = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    return res;
+  };
+
   const signOut = async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('prepsmart_demo_user');
@@ -201,6 +249,10 @@ export function AuthProvider({ children }) {
         signIn,
         signInDemo,
         signUp,
+        signInWithOAuth,
+        resetPassword,
+        updatePassword,
+        resendVerificationEmail,
         signOut,
         supabase,
       }}
