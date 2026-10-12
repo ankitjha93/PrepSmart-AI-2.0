@@ -88,16 +88,21 @@ export default function ScrollEffects() {
         >
           {/* Luminous Glowing Tip */}
           <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_#3B82F6,0_0_18px_#8B5CF6]" />
-
-          {/* Floating Telemetry Metric Pill (Shown once user starts scrolling) */}
-          {scrollProgress > 2 && (
-            <div className="absolute right-0 top-2 -translate-y-full transform -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md text-white text-[10px] font-mono font-bold tracking-tight shadow-lg border border-white/20 select-none pointer-events-none transition-all duration-150">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{roundedProgress}%</span>
-              <span className="text-slate-400 text-[8px] font-sans font-medium uppercase tracking-wider">read</span>
-            </div>
-          )}
         </div>
+
+        {/* Floating Telemetry Metric Pill (Positioned cleanly below the progress line inside visible viewport) */}
+        {scrollProgress > 2 && (
+          <div
+            className="absolute top-2.5 transform -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md text-white text-[10px] font-mono font-bold tracking-tight shadow-xl border border-white/20 select-none pointer-events-none transition-all duration-150"
+            style={{
+              left: `clamp(45px, ${scrollProgress}%, calc(100% - 45px))`,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{roundedProgress}%</span>
+            <span className="text-slate-400 text-[8px] font-sans font-medium uppercase tracking-wider">read</span>
+          </div>
+        )}
       </div>
 
       {/* 2. FLOATING GLASSMORPHIC BACK-TO-TOP CAPSULE WITH LIVE METRIC HUD */}

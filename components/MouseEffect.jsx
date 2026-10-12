@@ -41,6 +41,11 @@ export default function MouseEffect() {
     let haloY = -100;
     let animationFrameId;
 
+    // Initialize elements centered
+    if (dot) gsap.set(dot, { xPercent: -50, yPercent: -50 });
+    if (halo) gsap.set(halo, { xPercent: -50, yPercent: -50 });
+    if (spotlight) gsap.set(spotlight, { xPercent: -50, yPercent: -50 });
+
     // --- 1. MOUSE MOVE TRACKING (Desktop only) ---
     const onMouseMove = (e) => {
       mouseX = e.clientX;
@@ -52,7 +57,9 @@ export default function MouseEffect() {
         gsap.to(dot, {
           x: mouseX,
           y: mouseY,
-          duration: 0.08,
+          xPercent: -50,
+          yPercent: -50,
+          duration: 0.05,
           ease: "power2.out",
         });
       }
@@ -61,6 +68,8 @@ export default function MouseEffect() {
         gsap.to(spotlight, {
           x: mouseX,
           y: mouseY,
+          xPercent: -50,
+          yPercent: -50,
           duration: 0.35,
           ease: "power2.out",
         });
@@ -77,6 +86,8 @@ export default function MouseEffect() {
         gsap.set(halo, {
           x: haloX,
           y: haloY,
+          xPercent: -50,
+          yPercent: -50,
         });
       }
       animationFrameId = requestAnimationFrame(render);
@@ -235,7 +246,7 @@ export default function MouseEffect() {
         {/* Ambient Bioluminescent Radial Spotlight */}
         <div
           ref={spotlightRef}
-          className={`fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full transition-opacity duration-500 pointer-events-none ${
+          className={`fixed top-0 left-0 w-[700px] h-[700px] rounded-full transition-opacity duration-500 pointer-events-none ${
             isVisible ? "opacity-100" : "opacity-0"
           }`}
           style={{
@@ -247,13 +258,13 @@ export default function MouseEffect() {
         {/* Trailing Elastic Halo Ring */}
         <div
           ref={haloRef}
-          className={`fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-200 pointer-events-none flex items-center justify-center ${
+          className={`fixed top-0 left-0 rounded-full border transition-[width,height,background-color,border-color,box-shadow,opacity] duration-200 ease-out pointer-events-none flex items-center justify-center ${
             isVisible ? "opacity-100" : "opacity-0"
           } ${
             isHovered
-              ? "w-12 h-12 border-blue-500/70 bg-blue-500/10 backdrop-blur-[1px] shadow-[0_0_20px_rgba(37,99,235,0.35)] scale-125"
+              ? "w-12 h-12 border-blue-500/70 bg-blue-500/10 backdrop-blur-[1px] shadow-[0_0_20px_rgba(37,99,235,0.35)]"
               : isClicked
-              ? "w-8 h-8 border-violet-500/90 bg-violet-500/20 scale-90"
+              ? "w-8 h-8 border-violet-500/90 bg-violet-500/20"
               : "w-9 h-9 border-blue-500/40 bg-blue-500/5 shadow-sm"
           }`}
         >
@@ -265,13 +276,13 @@ export default function MouseEffect() {
         {/* Center Precision Dot */}
         <div
           ref={dotRef}
-          className={`fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none transition-all duration-150 ${
+          className={`fixed top-0 left-0 rounded-full pointer-events-none transition-[width,height,background-color,box-shadow,opacity] duration-150 ease-out ${
             isVisible ? "opacity-100" : "opacity-0"
           } ${
             isHovered
-              ? "w-2.5 h-2.5 bg-gradient-to-r from-orange-500 via-amber-400 to-violet-600 shadow-[0_0_8px_rgba(249,115,22,0.8)] scale-110"
+              ? "w-2.5 h-2.5 bg-gradient-to-r from-orange-500 via-amber-400 to-violet-600 shadow-[0_0_8px_rgba(249,115,22,0.8)]"
               : isClicked
-              ? "w-2 h-2 bg-violet-600 shadow-[0_0_8px_rgba(139,92,246,0.9)] scale-75"
+              ? "w-2 h-2 bg-violet-600 shadow-[0_0_8px_rgba(139,92,246,0.9)]"
               : "w-2 h-2 bg-blue-600 shadow-[0_0_6px_rgba(37,99,235,0.7)]"
           }`}
         />
