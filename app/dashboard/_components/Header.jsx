@@ -20,8 +20,10 @@ import {
   Plus,
   ShieldCheck,
   CheckCircle2,
-  Crown
+  Crown,
+  Settings
 } from 'lucide-react';
+import AccountSettingsDialog from '@/components/AccountSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -29,9 +31,10 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 function Header() {
   const path = usePathname();
   const headerRef = useRef(null);
-  const { user, signOut } = useAuth();
+  const { user, signOut, isDemoUser } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -223,9 +226,15 @@ function Header() {
                         <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {user.fullName || 'Candidate'}
                         </span>
-                        <Badge variant="success" className="text-[9px] font-black uppercase px-1.5 py-0">
-                          Active
-                        </Badge>
+                        {isDemoUser ? (
+                          <Badge variant="warning" className="text-[9px] font-black uppercase px-1.5 py-0 bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                            Demo Mode
+                          </Badge>
+                        ) : (
+                          <Badge variant="success" className="text-[9px] font-black uppercase px-1.5 py-0">
+                            Active
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-500 truncate">
                         {user.email}
@@ -233,6 +242,16 @@ function Header() {
                     </div>
 
                     <div className="py-1 space-y-0.5">
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          setSettingsOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition text-left"
+                      >
+                        <Settings className="w-4 h-4 text-blue-600" />
+                        <span>Account & Security Settings</span>
+                      </button>
                       <Link
                         href="/dashboard"
                         onClick={() => setDropdownOpen(false)}
@@ -382,6 +401,9 @@ function Header() {
           </div>
         </div>
       )}
+
+      {/* In-App Account & Security Settings Dialog */}
+      <AccountSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   );
 }

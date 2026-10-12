@@ -116,12 +116,38 @@ export function AuthProvider({ children }) {
 
     initializeAuth();
 
+    const handleStorageChange = (e) => {
+      if (e.key === 'prepsmart_auth_sync') {
+        if (e.newValue === 'signout') {
+          setUser(null);
+          setSession(null);
+          if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
+            window.location.href = '/sign-in';
+          }
+        } else if (e.newValue === 'signin') {
+          supabase.auth.getSession().then(({ data: { session: s } }) => {
+            if (s?.user) {
+              setUser(formatUser(s.user));
+              setSession(s);
+            }
+          });
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange);
+    }
+
     return () => {
       mounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorageChange);
+      }
     };
   }, [supabase, isConfigured]);
 
-  const signIn = async ({ email, password }) => {
+  const signIn = async ({ email, password, rememberMe = true }) => {
     const res = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -129,11 +155,27 @@ export function AuthProvider({ children }) {
     if (res.data?.user) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('prepsmart_demo_user');
-        document.cookie = 'prepsmart_user_session=true; path=/; max-age=604800; SameSite=Lax';
+        localStorage.setItem('prepsmart_auth_sync', `signin-${Date.now()}`);
+        const maxAge = rememberMe ? 2592000 : 86400; // 30 days vs 1 day
+        document.cookie = `prepsmart_user_session=true; path=/; max-age=${maxAge}; SameSite=Lax`;
       }
       setUser(formatUser(res.data.user));
     }
     return res;
+  };
+
+  const signInWithOtp = async (email) => {
+    if (!isConfigured) {
+      return signInDemo();
+    }
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const emailRedirectTo = `${origin}/auth/callback?next=/dashboard`;
+    return await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo,
+      },
+    });
   };
 
   const signInDemo = () => {
@@ -144,6 +186,7 @@ export function AuthProvider({ children }) {
     };
     if (typeof window !== 'undefined') {
       localStorage.setItem('prepsmart_demo_user', JSON.stringify(demoCandidate));
+      localStorage.setItem('prepsmart_auth_sync', `signin-${Date.now()}`);
       document.cookie = 'prepsmart_demo_session=true; path=/; max-age=604800; SameSite=Lax';
       document.cookie = 'prepsmart_user_session=true; path=/; max-age=604800; SameSite=Lax';
     }
@@ -164,6 +207,7 @@ export function AuthProvider({ children }) {
     if (res.data?.user) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('prepsmart_demo_user');
+        localStorage.setItem('prepsmart_auth_sync', `signin-${Date.now()}`);
         document.cookie = 'prepsmart_user_session=true; path=/; max-age=604800; SameSite=Lax';
       }
       setUser(formatUser(res.data.user));
@@ -208,6 +252,34 @@ export function AuthProvider({ children }) {
     return res;
   };
 
+  const updateProfile = async ({ fullName }) => {
+    if (!user) return { error: new Error('User not authenticated') };
+    
+    // If in demo mode, update local state
+    if (user.id?.startsWith('demo') || !isConfigured) {
+      const updated = {
+        ...user,
+        fullName,
+        user_metadata: { ...user.user_metadata, full_name: fullName },
+      };
+      setUser(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('prepsmart_demo_user', JSON.stringify(updated));
+      }
+      return { data: { user: updated }, error: null };
+    }
+
+    const res = await supabase.auth.updateUser({
+      data: {
+        full_name: fullName,
+      },
+    });
+    if (res.data?.user) {
+      setUser(formatUser(res.data.user));
+    }
+    return res;
+  };
+
   const resendVerificationEmail = async (email) => {
     if (!isConfigured) {
       return { data: {}, error: null };
@@ -222,6 +294,7 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('prepsmart_demo_user');
+      localStorage.setItem('prepsmart_auth_sync', `signout-${Date.now()}`);
       document.cookie = 'prepsmart_demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = 'prepsmart_user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     }
@@ -242,6 +315,10 @@ export function AuthProvider({ children }) {
     return { error: null };
   };
 
+  const isDemoUser = Boolean(
+    user && (user.id?.startsWith('demo') || (typeof document !== 'undefined' && document.cookie.includes('prepsmart_demo_session=true')))
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -249,12 +326,15 @@ export function AuthProvider({ children }) {
         session,
         loading,
         isConfigured,
+        isDemoUser,
         signIn,
+        signInWithOtp,
         signInDemo,
         signUp,
         signInWithOAuth,
         resetPassword,
         updatePassword,
+        updateProfile,
         resendVerificationEmail,
         signOut,
         supabase,

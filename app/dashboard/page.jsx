@@ -2,6 +2,7 @@
 import React, { useRef } from 'react'
 import AddNewInterview from './_components/AddNewInterview'
 import InterviewList from './_components/InterviewList'
+import CandidateOnboardingDialog from '@/components/CandidateOnboardingDialog'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
 import { 
@@ -90,6 +91,7 @@ function Dashboard() {
 
   return (
     <div ref={dashRef} className='p-6 md:p-10 max-w-7xl mx-auto'>
+      <CandidateOnboardingDialog />
       
       {/* Top Header Section */}
       <div className='dash-header flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8'>
