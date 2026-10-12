@@ -10,8 +10,6 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "./dashboard/_components/Header";
 import NeuralBackground from "@/components/NeuralBackground";
-import MouseEffect from "@/components/MouseEffect";
-import ScrollEffects from "@/components/ScrollEffects";
 import { useAuth } from "@/context/AuthContext";
 import React, { useRef, useState, useEffect } from "react";
 import gsap from "gsap";
@@ -488,12 +486,6 @@ export default function Home() {
       onMouseMove={handleMouseMove}
       className="min-h-screen bg-[#F8FAFC] dark:bg-[#0F172A] overflow-hidden relative text-[#0F172A] dark:text-[#F8FAFC] bg-grid-pattern selection:bg-blue-500 selection:text-white"
     >
-      {/* Modern & Attractive Mouse Follower & Bioluminescent Spotlight */}
-      <MouseEffect />
-
-      {/* Modern & Attractive Scroll Progress Tracker & Back-To-Top Gauge */}
-      <ScrollEffects />
-
       {/* Interactive Neural Constellation Particle Background */}
       <NeuralBackground />
 

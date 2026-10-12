@@ -2,6 +2,8 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
+import MouseEffect from "@/components/MouseEffect";
+import ScrollEffects from "@/components/ScrollEffects";
 
 const inter = Outfit({ subsets: ["latin"] });
 
@@ -16,6 +18,8 @@ export default function RootLayout({ children }) {
       <body className={inter.className}>
         <AuthProvider>
           <Toaster />
+          <MouseEffect />
+          <ScrollEffects />
           {children}
         </AuthProvider>
       </body>
