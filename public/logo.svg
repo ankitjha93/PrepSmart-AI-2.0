@@ -1,1 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 40 40"><path fill="#F06225" d="M20 0c11.046 0 20 8.954 20 20v14a6 6 0 0 1-6 6H21v-8.774c0-2.002.122-4.076 1.172-5.78a10 10 0 0 1 6.904-4.627l.383-.062a.8.8 0 0 0 0-1.514l-.383-.062a10 10 0 0 1-8.257-8.257l-.062-.383a.8.8 0 0 0-1.514 0l-.062.383a9.999 9.999 0 0 1-4.627 6.904C12.85 18.878 10.776 19 8.774 19H.024C.547 8.419 9.29 0 20 0Z"></path><path fill="#F06225" d="M0 21h8.774c2.002 0 4.076.122 5.78 1.172a10.02 10.02 0 0 1 3.274 3.274C18.878 27.15 19 29.224 19 31.226V40H6a6 6 0 0 1-6-6V21ZM40 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"></path></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- Background Gradient (Royal Blue to Deep Slate) -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="65%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+
+    <!-- Emerald & Cyan Accent Gradient -->
+    <linearGradient id="emeraldGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#34D399" />
+    </linearGradient>
+
+    <!-- Light Surface Accent -->
+    <linearGradient id="lightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#F8FAFC" />
+    </linearGradient>
+
+    <filter id="emeraldGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Rounded Squircle with Subtle Rim -->
+  <rect x="6" y="6" width="88" height="88" rx="26" fill="url(#bgGrad)" />
+  <rect x="7" y="7" width="86" height="86" rx="25" stroke="rgba(248, 250, 252, 0.2)" stroke-width="2" />
+
+  <!-- Intelligent Speech Bubble / Preparation Crest -->
+  <path d="M28 32 C28 25.37 33.37 20 40 20 H60 C66.63 20 72 25.37 72 32 V54 C72 60.63 66.63 66 60 66 H44 L32 76 V66 C29.79 66 28 64.21 28 62 Z" 
+        fill="rgba(248, 250, 252, 0.12)" 
+        stroke="rgba(248, 250, 252, 0.3)" 
+        stroke-width="2" 
+        stroke-linejoin="round" />
+
+  <!-- Animated Soundwave Equalizer Bars (Speech & Voice in Emerald / White) -->
+  <rect x="36" y="42" width="4.5" height="14" rx="2.25" fill="url(#emeraldGrad)" />
+  <rect x="44" y="34" width="4.5" height="26" rx="2.25" fill="url(#lightGrad)" />
+  <rect x="52" y="38" width="4.5" height="20" rx="2.25" fill="url(#emeraldGrad)" />
+  <rect x="60" y="44" width="4.5" height="11" rx="2.25" fill="rgba(248, 250, 252, 0.8)" />
+
+  <!-- Brilliant AI Intelligence Sparkle (Emerald Glow) -->
+  <path d="M68 22 C68 27 73 28 73 28 C73 28 68 29 68 34 C68 29 63 28 63 28 C63 28 68 27 68 22 Z" 
+        fill="#10B981" 
+        filter="url(#emeraldGlow)" />
+  <circle cx="68" cy="28" r="1.5" fill="#FFFFFF" />
+
+  <!-- Micro Sparkle Accent -->
+  <circle cx="26" cy="38" r="1.5" fill="#34D399" opacity="0.9" />
+</svg>
