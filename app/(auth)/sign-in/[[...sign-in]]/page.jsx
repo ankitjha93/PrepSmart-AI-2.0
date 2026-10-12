@@ -27,7 +27,7 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signInDemo } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get('redirectedFrom') || '/dashboard';
@@ -58,7 +58,7 @@ export default function SignInPage() {
   const handleDemoLogin = async () => {
     setIsLoading(true);
     try {
-      await signIn({ email: '93ankitjha@gmail.com', password: 'demo-password' });
+      signInDemo();
       toast.success('Signed in as Demo Candidate (Ankit Jha)!');
       router.push(redirectedFrom);
     } catch (err) {
@@ -213,10 +213,11 @@ export default function SignInPage() {
             type="button"
             onClick={handleDemoLogin}
             disabled={isLoading}
-            className="w-full py-2.5 px-4 border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 hover:bg-blue-600 dark:bg-blue-950/40 dark:hover:bg-blue-600 text-blue-700 dark:text-blue-300 hover:text-white dark:hover:text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-xs shadow-sm hover:shadow-md hover:shadow-blue-500/20 transition-all duration-200 group"
+            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-xs sm:text-sm shadow-md shadow-blue-500/25 hover:shadow-lg hover:shadow-blue-500/35 transition-all duration-200 group transform active:scale-[0.99] cursor-pointer"
           >
-            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:text-white transition-colors" />
-            <span>Instant 1-Click Test Drive (Demo Candidate)</span>
+            <Sparkles className="w-4 h-4 text-amber-300 group-hover:rotate-12 transition-transform" />
+            <span className="text-white font-semibold tracking-wide">Instant 1-Click Test Drive (Demo Mode)</span>
+            <ArrowRight className="w-4 h-4 text-blue-200 group-hover:translate-x-1 transition-transform ml-1" />
           </button>
 
           <div className="relative my-2">

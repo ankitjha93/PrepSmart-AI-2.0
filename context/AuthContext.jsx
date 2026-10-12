@@ -45,25 +45,32 @@ export function AuthProvider({ children }) {
     let mounted = true;
 
     async function initializeAuth() {
-      if (!isConfigured) {
-        // Fallback demo user mode for when credentials are not yet added
-        const savedDemo = typeof window !== 'undefined' ? localStorage.getItem('prepsmart_demo_user') : null;
-        if (savedDemo) {
-          try {
-            setUser(formatUser(JSON.parse(savedDemo)));
-          } catch {
-            setUser(null);
+      // 1. Check if demo user is stored in localStorage
+      const savedDemo = typeof window !== 'undefined' ? localStorage.getItem('prepsmart_demo_user') : null;
+      if (savedDemo) {
+        try {
+          const parsed = JSON.parse(savedDemo);
+          if (mounted) {
+            setUser(formatUser(parsed));
+            setLoading(false);
           }
-        } else {
-          // Provide default candidate user in unconfigured mode
-          const defaultDemo = {
-            id: 'demo-user-123',
-            email: '93ankitjha@gmail.com',
-            user_metadata: { full_name: 'Ankit Jha' },
-          };
-          setUser(formatUser(defaultDemo));
+          return;
+        } catch {
+          // ignore parse error
         }
-        setLoading(false);
+      }
+
+      if (!isConfigured) {
+        // Default candidate user in unconfigured mode
+        const defaultDemo = {
+          id: 'demo-user-123',
+          email: '93ankitjha@gmail.com',
+          user_metadata: { full_name: 'Ankit Jha' },
+        };
+        if (mounted) {
+          setUser(formatUser(defaultDemo));
+          setLoading(false);
+        }
         return;
       }
 
@@ -71,14 +78,18 @@ export function AuthProvider({ children }) {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         if (mounted) {
           setSession(initialSession);
-          setUser(formatUser(initialSession?.user));
+          if (initialSession?.user) {
+            setUser(formatUser(initialSession.user));
+          }
           setLoading(false);
         }
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
           if (mounted) {
             setSession(currentSession);
-            setUser(formatUser(currentSession?.user));
+            if (currentSession?.user) {
+              setUser(formatUser(currentSession.user));
+            }
             setLoading(false);
           }
         });
@@ -100,40 +111,34 @@ export function AuthProvider({ children }) {
   }, [supabase, isConfigured]);
 
   const signIn = async ({ email, password }) => {
-    if (!isConfigured) {
-      const demoUser = {
-        id: 'demo-' + Date.now(),
-        email,
-        user_metadata: { full_name: email.split('@')[0] },
-      };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('prepsmart_demo_user', JSON.stringify(demoUser));
-      }
-      setUser(formatUser(demoUser));
-      return { data: { user: demoUser }, error: null };
-    }
-
     const res = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (res.data?.user) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('prepsmart_demo_user');
+      }
+      setUser(formatUser(res.data.user));
+    }
     return res;
   };
 
-  const signUp = async ({ email, password, fullName }) => {
-    if (!isConfigured) {
-      const demoUser = {
-        id: 'demo-' + Date.now(),
-        email,
-        user_metadata: { full_name: fullName || email.split('@')[0] },
-      };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('prepsmart_demo_user', JSON.stringify(demoUser));
-      }
-      setUser(formatUser(demoUser));
-      return { data: { user: demoUser }, error: null };
+  const signInDemo = () => {
+    const demoCandidate = {
+      id: 'demo-ankit-jha',
+      email: '93ankitjha@gmail.com',
+      user_metadata: { full_name: 'Ankit Jha' },
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('prepsmart_demo_user', JSON.stringify(demoCandidate));
+      document.cookie = 'prepsmart_demo_session=true; path=/; max-age=604800; SameSite=Lax';
     }
+    setUser(formatUser(demoCandidate));
+    return { data: { user: demoCandidate }, error: null };
+  };
 
+  const signUp = async ({ email, password, fullName }) => {
     const res = await supabase.auth.signUp({
       email,
       password,
@@ -143,22 +148,28 @@ export function AuthProvider({ children }) {
         },
       },
     });
+    if (res.data?.user) {
+      setUser(formatUser(res.data.user));
+    }
     return res;
   };
 
   const signOut = async () => {
-    if (!isConfigured) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('prepsmart_demo_user');
-      }
-      setUser(null);
-      router.push('/sign-in');
-      return { error: null };
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('prepsmart_demo_user');
+      document.cookie = 'prepsmart_demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     }
-
-    const res = await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    try {
+      if (isConfigured) {
+        await supabase.auth.signOut();
+      }
+    } catch {
+      // ignore
+    }
     router.push('/sign-in');
-    return res;
+    return { error: null };
   };
 
   return (
@@ -169,6 +180,7 @@ export function AuthProvider({ children }) {
         loading,
         isConfigured,
         signIn,
+        signInDemo,
         signUp,
         signOut,
         supabase,

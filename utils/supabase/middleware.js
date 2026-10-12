@@ -50,7 +50,9 @@ export async function updateSession(request) {
     request.nextUrl.pathname.startsWith('/dashboard') ||
     request.nextUrl.pathname.startsWith('/forum');
 
-  if (isProtectedRoute && !user) {
+  const demoCookie = request.cookies.get('prepsmart_demo_session');
+
+  if (isProtectedRoute && !user && !demoCookie?.value) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/sign-in';
     redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname);
