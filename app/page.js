@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "./dashboard/_components/Header";
+import NeuralBackground from "@/components/NeuralBackground";
 import React, { useRef, useState, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -294,6 +295,9 @@ export default function Home() {
         }}
       />
 
+      {/* Interactive Neural Constellation Particle Background */}
+      <NeuralBackground />
+
       <Header />
 
       {/* Ambient Animated Glow Blobs (Royal Blue & Emerald) */}
@@ -319,7 +323,9 @@ export default function Home() {
         {/* Hero Title with Dynamic Gradient */}
         <h1 className="hero-title text-4xl sm:text-5xl md:text-7xl font-black tracking-tight text-[#0F172A] dark:text-white leading-[1.08] mb-6">
           Ace Your Next Interview with{" "}
-          <span className="hero-gradient-text inline-block">Adaptive AI</span>
+          <span className="hero-gradient-text animate-gradient-shift inline-block drop-shadow-sm">
+            Adaptive AI
+          </span>
         </h1>
 
         {/* Subtitle */}
@@ -327,12 +333,15 @@ export default function Home() {
           Practice role-tailored technical & behavioral mock sessions, speak naturally with live audio spectrum feedback, and receive instantaneous FAANG-calibrated AI evaluations.
         </p>
 
-        {/* Action Buttons */}
+        {/* Action Buttons with Shimmer Sweep */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
           <Link href="/dashboard" className="hero-cta w-full sm:w-auto">
-            <Button size="lg" className="w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl shadow-xl hover:shadow-[#2563EB]/30 hover:scale-105 transition-all duration-300 bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center gap-2 group">
-              Start Practicing Free
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <Button size="lg" className="relative overflow-hidden w-full sm:w-auto px-8 py-6 text-base font-semibold rounded-2xl shadow-xl hover:shadow-[#2563EB]/30 hover:scale-105 transition-all duration-300 bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center gap-2 group">
+              <span className="relative z-10 flex items-center gap-2">
+                Start Practicing Free
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
+              </span>
+              <span className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-1000 ease-out pointer-events-none" />
             </Button>
           </Link>
           <a href="#simulator" className="hero-cta w-full sm:w-auto">
@@ -383,11 +392,11 @@ export default function Home() {
         </div>
 
         {/* ========================================================================= */}
-        {/* INTERACTIVE PLAYABLE SIMULATOR CARD                                       */}
+        {/* INTERACTIVE PLAYABLE SIMULATOR CARD WITH BORDER BEAM EFFECT               */}
         {/* ========================================================================= */}
         <div 
           id="simulator" 
-          className="hero-simulator max-w-4xl mx-auto text-left rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-[#0F172A]/95 shadow-2xl backdrop-blur-2xl p-6 md:p-8 mb-20 relative overflow-hidden"
+          className="hero-simulator border-beam-effect max-w-4xl mx-auto text-left rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-[#0F172A]/95 shadow-2xl backdrop-blur-2xl p-6 md:p-8 mb-20 relative overflow-hidden"
         >
           {/* Subtle Top Ambient Gradient */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500" />
