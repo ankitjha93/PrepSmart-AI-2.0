@@ -45,9 +45,10 @@ export function AuthProvider({ children }) {
     let mounted = true;
 
     async function initializeAuth() {
-      // 1. Check if demo user is stored in localStorage
+      // 1. Check if demo user is stored in localStorage AND demo cookie is active
+      const hasDemoCookie = typeof document !== 'undefined' && document.cookie.includes('prepsmart_demo_session=true');
       const savedDemo = typeof window !== 'undefined' ? localStorage.getItem('prepsmart_demo_user') : null;
-      if (savedDemo) {
+      if (savedDemo && hasDemoCookie) {
         try {
           const parsed = JSON.parse(savedDemo);
           if (mounted) {
@@ -58,6 +59,8 @@ export function AuthProvider({ children }) {
         } catch {
           // ignore parse error
         }
+      } else if (typeof localStorage !== 'undefined' && savedDemo && !hasDemoCookie) {
+        localStorage.removeItem('prepsmart_demo_user');
       }
 
       if (!isConfigured) {

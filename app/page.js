@@ -10,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "./dashboard/_components/Header";
 import NeuralBackground from "@/components/NeuralBackground";
+import { useAuth } from "@/context/AuthContext";
 import React, { useRef, useState, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -171,6 +172,8 @@ const FAQS = [
 
 export default function Home() {
   const containerRef = useRef(null);
+  const { user } = useAuth();
+  const primaryCtaHref = user ? "/dashboard" : "/sign-up";
   const [selectedRole, setSelectedRole] = useState(DEMO_ROLES[0]);
   const [isSpeakingQuestion, setIsSpeakingQuestion] = useState(false);
   const [isSimulatingAnswer, setIsSimulatingAnswer] = useState(false);
@@ -445,7 +448,7 @@ export default function Home() {
 
         {/* Action Buttons with Shimmer Sweep and GSAP Magnetic Pull */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
-          <Link href="/dashboard" className="hero-cta w-full sm:w-auto">
+          <Link href={primaryCtaHref} className="hero-cta w-full sm:w-auto">
             <Button 
               size="lg" 
               onMouseMove={handleMagneticMouseMove}
@@ -1016,7 +1019,7 @@ export default function Home() {
               Generate role-specific mock questions, speak freely with live audio spectrum validation, and gain the competitive edge for your dream job.
             </p>
             <div>
-              <Link href="/dashboard">
+              <Link href={primaryCtaHref}>
                 <Button 
                   size="lg" 
                   onMouseMove={handleMagneticMouseMove}

@@ -51,13 +51,10 @@ export async function updateSession(request) {
   }
 
   const demoCookie = request.cookies.get('prepsmart_demo_session');
-  const userCookie = request.cookies.get('prepsmart_user_session');
-  const allCookies = request.cookies.getAll();
-  const hasAuthToken = allCookies.some(
-    (c) => c.name.includes('-auth-token') || c.name.startsWith('sb-')
-  );
+  const isDemoActive = demoCookie?.value === 'true';
 
-  const isAuthenticated = Boolean(user || demoCookie?.value || userCookie?.value || hasAuthToken);
+  // An entity is only authenticated if Supabase verified the user or demo session is explicitly active
+  const isAuthenticated = Boolean(user || isDemoActive);
 
   const pathname = request.nextUrl.pathname;
   const isProtectedRoute =
