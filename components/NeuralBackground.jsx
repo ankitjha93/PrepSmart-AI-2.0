@@ -6,6 +6,7 @@ export default function NeuralBackground() {
   const canvasRef = useRef(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -13,21 +14,30 @@ export default function NeuralBackground() {
     if (!ctx) return;
 
     let animationFrameId;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
+    
+    const updateDimensions = () => {
+      const parent = canvas.parentElement || document.body;
+      canvas.width = parent.clientWidth || window.innerWidth;
+      canvas.height = parent.clientHeight || window.innerHeight;
+      return { w: canvas.width, h: canvas.height };
+    };
 
-    // Mouse coordinates
-    let mouse = { x: -1000, y: -1000, radius: 150 };
+    let { w: width, h: height } = updateDimensions();
+
+    // Mouse coordinates relative to viewport
+    let mouse = { x: -1000, y: -1000, radius: 140 };
 
     const handleResize = () => {
       if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      const dims = updateDimensions();
+      width = dims.w;
+      height = dims.h;
     };
 
     const handleMouseMove = (e) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
     };
 
     const handleMouseLeave = () => {
@@ -40,7 +50,7 @@ export default function NeuralBackground() {
     window.addEventListener('mouseleave', handleMouseLeave);
 
     // Particle Configuration
-    const particleCount = Math.min(Math.floor(width / 32), 48);
+    const particleCount = Math.min(Math.floor(width / 36), 40);
     const particles = [];
 
     const colors = [
@@ -54,11 +64,11 @@ export default function NeuralBackground() {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.6,
-        vy: (Math.random() - 0.5) * 0.6,
-        radius: Math.random() * 1.6 + 1.2,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        radius: Math.random() * 1.5 + 1,
         colorPrefix: colors[Math.floor(Math.random() * colors.length)],
-        baseAlpha: Math.random() * 0.4 + 0.2
+        baseAlpha: Math.random() * 0.35 + 0.15
       });
     }
 
@@ -72,13 +82,13 @@ export default function NeuralBackground() {
           const dy = particles[i].y - particles[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (dist < 110) {
-            const alpha = (1 - dist / 110) * 0.16;
+          if (dist < 100) {
+            const alpha = (1 - dist / 100) * 0.14;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
             ctx.strokeStyle = `rgba(37, 99, 235, ${alpha})`;
-            ctx.lineWidth = 0.8;
+            ctx.lineWidth = 0.75;
             ctx.stroke();
           }
         }
@@ -96,23 +106,22 @@ export default function NeuralBackground() {
         if (p.x < 0 || p.x > width) p.vx *= -1;
         if (p.y < 0 || p.y > height) p.vy *= -1;
 
-        // Mouse proximity link & slight displacement
+        // Mouse proximity link
         const dx = mouse.x - p.x;
         const dy = mouse.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < mouse.radius) {
-          const force = (1 - dist / mouse.radius) * 0.5;
+          const force = (1 - dist / mouse.radius) * 0.4;
           p.x -= (dx / dist) * force;
           p.y -= (dy / dist) * force;
 
-          // Mouse connecting thread
-          const mouseAlpha = (1 - dist / mouse.radius) * 0.22;
+          const mouseAlpha = (1 - dist / mouse.radius) * 0.2;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(mouse.x, mouse.y);
           ctx.strokeStyle = `rgba(16, 185, 129, ${mouseAlpha})`;
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 0.8;
           ctx.stroke();
         }
 
@@ -120,12 +129,6 @@ export default function NeuralBackground() {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = `${p.colorPrefix}${p.baseAlpha})`;
-        ctx.fill();
-
-        // Subtle glow halo
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius * 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = `${p.colorPrefix}0.08)`;
         ctx.fill();
       }
 
@@ -145,7 +148,7 @@ export default function NeuralBackground() {
   return (
     <canvas 
       ref={canvasRef} 
-      className="pointer-events-none absolute inset-0 z-0 opacity-75 dark:opacity-50"
+      className="pointer-events-none absolute inset-0 w-full h-full z-0 opacity-70 dark:opacity-45"
     />
   );
 }
