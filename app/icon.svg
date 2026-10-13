@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- Vibrant Sunset Orange to Electric Violet Gradient for Face Profile -->
+    <linearGradient id="faceGrad" x1="20%" y1="10%" x2="70%" y2="90%">
+      <stop offset="0%" stop-color="#FF5722" />
+      <stop offset="35%" stop-color="#FF3D00" />
+      <stop offset="65%" stop-color="#D946EF" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+
+    <!-- Mesh Wireframe Gradient -->
+    <linearGradient id="meshGrad" x1="30%" y1="15%" x2="85%" y2="85%">
+      <stop offset="0%" stop-color="#FF6B00" />
+      <stop offset="40%" stop-color="#F43F5E" />
+      <stop offset="70%" stop-color="#C026D3" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+
+    <!-- Dark Contrast Squircle Background with Ambient Glow Rim -->
+    <linearGradient id="bgPlate" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+
+    <!-- Node Glow Filter -->
+    <filter id="glowFilter" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Ambient Shadow for squircle plate -->
+    <filter id="plateShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#7C3AED" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Modern Dark Plate Base (Keeps logo ultra-crisp on both light & dark navbars) -->
+  <rect x="5" y="5" width="90" height="90" rx="24" fill="url(#bgPlate)" filter="url(#plateShadow)" />
+  <rect x="6" y="6" width="88" height="88" rx="23" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.5" />
+
+  <!-- Subtle neural glow aura behind the head -->
+  <circle cx="56" cy="46" r="32" fill="#7C3AED" opacity="0.18" filter="url(#glowFilter)" />
+  <circle cx="42" cy="42" r="22" fill="#FF5722" opacity="0.14" filter="url(#glowFilter)" />
+
+  <!-- =============================================================== -->
+  <!-- 1. LEFT HUMAN SILHOUETTE FACE PROFILE (Orange -> Magenta)       -->
+  <!-- =============================================================== -->
+  <path d="M 44 14 
+           C 39 18 36 24 35 29 
+           C 33 33 34 35 32 38 
+           C 30 40 25 43 24 45 
+           C 25 46 28 47 28.5 48.5 
+           C 29 50 27 51.5 28 53.5 
+           C 29 55 31 56 31 57.5 
+           C 31 60 28.5 61.5 28.5 64 
+           C 28.5 66.5 31.5 68 33 69.5 
+           C 34.5 71 34 73 35.5 75 
+           C 37 77 40 78.5 43 79 
+           C 44.5 76 43 70 41 66 
+           C 39 61 38 55 37 49 
+           C 37 42 39 33 41 26 
+           Z" 
+        fill="url(#faceGrad)" />
+
+  <!-- =============================================================== -->
+  <!-- 2. GEOMETRIC NEURAL NETWORK FACET FILLS (Translucent Polygons)  -->
+  <!-- =============================================================== -->
+  <polygon points="53,13 42,26 53,27" fill="#FF5722" opacity="0.12" />
+  <polygon points="53,13 65,19 53,27" fill="#F43F5E" opacity="0.10" />
+  <polygon points="65,19 75,27 61,31" fill="#E11D48" opacity="0.12" />
+  <polygon points="53,27 61,31 51,40" fill="#C026D3" opacity="0.14" />
+  <polygon points="42,26 40,38 51,40" fill="#E11D48" opacity="0.10" />
+  <polygon points="75,27 82,34 71,43" fill="#9333EA" opacity="0.12" />
+  <polygon points="61,31 71,43 57,48" fill="#A855F7" opacity="0.12" />
+  <polygon points="51,40 57,48 48,56" fill="#C026D3" opacity="0.10" />
+  <polygon points="40,38 41,52 48,56" fill="#D946EF" opacity="0.10" />
+  <polygon points="71,43 78,54 64,59" fill="#7C3AED" opacity="0.14" />
+  <polygon points="57,48 64,59 55,67" fill="#8B5CF6" opacity="0.12" />
+  <polygon points="48,56 55,67 43,72" fill="#9333EA" opacity="0.10" />
+  <polygon points="64,59 74,69 55,67" fill="#6D28D9" opacity="0.12" />
+  <polygon points="55,67 74,69 62,75" fill="#4F46E5" opacity="0.10" />
+
+  <!-- =============================================================== -->
+  <!-- 3. INTERCONNECTING NEURAL CONSTELLATION LINES (Gradient Stroke) -->
+  <!-- =============================================================== -->
+  <g stroke="url(#meshGrad)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+    <!-- Top & Forehead Connections -->
+    <line x1="44" y1="14" x2="53" y2="13" />
+    <line x1="44" y1="14" x2="42" y2="26" />
+    <line x1="53" y1="13" x2="42" y2="26" />
+    <line x1="53" y1="13" x2="53" y2="27" />
+    <line x1="53" y1="13" x2="65" y2="19" />
+
+    <!-- Upper Cranium Connections -->
+    <line x1="65" y1="19" x2="53" y2="27" />
+    <line x1="65" y1="19" x2="75" y2="27" />
+    <line x1="65" y1="19" x2="61" y2="31" />
+    <line x1="75" y1="27" x2="82" y2="34" />
+    <line x1="75" y1="27" x2="61" y2="31" />
+    
+    <!-- Central Brain Core Connections -->
+    <line x1="42" y1="26" x2="53" y2="27" />
+    <line x1="42" y1="26" x2="40" y2="38" />
+    <line x1="53" y1="27" x2="61" y2="31" />
+    <line x1="53" y1="27" x2="51" y2="40" />
+    <line x1="40" y1="38" x2="51" y2="40" />
+    <line x1="40" y1="38" x2="41" y2="52" />
+    <line x1="61" y1="31" x2="71" y2="43" />
+    <line x1="61" y1="31" x2="57" y2="48" />
+    <line x1="51" y1="40" x2="57" y2="48" />
+    <line x1="51" y1="40" x2="48" y2="56" />
+
+    <!-- Occipital & Back Skull Connections -->
+    <line x1="82" y1="34" x2="71" y2="43" />
+    <line x1="82" y1="34" x2="78" y2="54" />
+    <line x1="71" y1="43" x2="78" y2="54" />
+    <line x1="71" y1="43" x2="57" y2="48" />
+    <line x1="71" y1="43" x2="64" y2="59" />
+
+    <!-- Lower Skull & Jaw Connections -->
+    <line x1="57" y1="48" x2="64" y2="59" />
+    <line x1="57" y1="48" x2="48" y2="56" />
+    <line x1="48" y1="56" x2="41" y2="52" />
+    <line x1="48" y1="56" x2="55" y2="67" />
+    <line x1="41" y1="52" x2="43" y2="72" />
+    <line x1="78" y1="54" x2="64" y2="59" />
+    <line x1="78" y1="54" x2="74" y2="69" />
+    <line x1="64" y1="59" x2="55" y2="67" />
+    <line x1="64" y1="59" x2="74" y2="69" />
+    <line x1="55" y1="67" x2="74" y2="69" />
+    <line x1="55" y1="67" x2="43" y2="72" />
+    <line x1="55" y1="67" x2="46" y2="78" />
+    <line x1="74" y1="69" x2="62" y2="75" />
+    <line x1="46" y1="78" x2="62" y2="75" />
+  </g>
+
+  <!-- =============================================================== -->
+  <!-- 4. LUMINOUS CONSTELLATION NODES (Vertices with Glow)            -->
+  <!-- =============================================================== -->
+  <g filter="url(#glowFilter)">
+    <!-- Top Crown (Warm Orange) -->
+    <circle cx="53" cy="13" r="2.8" fill="#FF5722" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="42" cy="26" r="2.4" fill="#FF6B00" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="65" cy="19" r="2.6" fill="#F43F5E" stroke="#FFFFFF" stroke-width="0.8" />
+    
+    <!-- Mid Brain (Rose / Magenta) -->
+    <circle cx="53" cy="27" r="2.8" fill="#FB7185" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="40" cy="38" r="2.3" fill="#F43F5E" stroke="#FFFFFF" stroke-width="0.7" />
+    <circle cx="61" cy="31" r="2.6" fill="#E11D48" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="75" cy="27" r="2.5" fill="#D946EF" stroke="#FFFFFF" stroke-width="0.8" />
+
+    <!-- Center Hub & Back Skull (Fuchsia to Violet) -->
+    <circle cx="51" cy="40" r="2.9" fill="#C026D3" stroke="#FFFFFF" stroke-width="0.9" />
+    <circle cx="82" cy="34" r="2.7" fill="#A855F7" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="71" cy="43" r="2.8" fill="#9333EA" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="57" cy="48" r="3.0" fill="#C026D3" stroke="#FFFFFF" stroke-width="0.9" />
+
+    <!-- Lower Neck / Occiput Base -->
+    <circle cx="41" cy="52" r="2.2" fill="#E11D48" stroke="#FFFFFF" stroke-width="0.7" />
+    <circle cx="48" cy="56" r="2.5" fill="#A855F7" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="78" cy="54" r="2.6" fill="#7C3AED" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="64" cy="59" r="2.8" fill="#8B5CF6" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="55" cy="67" r="2.9" fill="#7C3AED" stroke="#FFFFFF" stroke-width="0.9" />
+    <circle cx="74" cy="69" r="2.4" fill="#6D28D9" stroke="#FFFFFF" stroke-width="0.8" />
+    <circle cx="46" cy="78" r="2.5" fill="#8B5CF6" stroke="#FFFFFF" stroke-width="0.8" />
+
+    <!-- Floating Neural Particles above crown (As seen in Image 2) -->
+    <circle cx="69" cy="15" r="1.8" fill="#FF5722" />
+    <circle cx="75" cy="17" r="1.5" fill="#FF7849" />
+    <circle cx="78" cy="22" r="2.0" fill="#E11D48" />
+    <circle cx="73" cy="21" r="1.4" fill="#D946EF" />
+  </g>
+</svg>

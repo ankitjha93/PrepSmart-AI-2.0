@@ -10,6 +10,14 @@ const inter = Outfit({ subsets: ["latin"] });
 export const metadata = {
   title: "PrepSmart AI | Next-Gen AI Mock Interview Platform",
   description: "Master behavioral and technical interviews with real-time AI feedback and speech analytics",
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/logo.svg",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }) {
