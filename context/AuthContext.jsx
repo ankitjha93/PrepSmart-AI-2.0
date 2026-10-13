@@ -60,12 +60,12 @@ export function AuthProvider({ children }) {
     
     // Choose the best available avatar URL
     const rawAvatar = rawUser.user_metadata?.avatar_url;
+    const isCleanHttpUrl = rawAvatar && !rawAvatar.startsWith('data:') && !rawAvatar.includes('undefined') && rawAvatar !== 'local';
     const avatarUrl =
-      rawAvatar && !rawAvatar.includes('undefined')
-        ? rawAvatar
-        : cachedAvatar ||
-          rawUser.imageUrl ||
-          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}`;
+      cachedAvatar ||
+      (isCleanHttpUrl ? rawAvatar : null) ||
+      rawUser.imageUrl ||
+      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}`;
 
     return {
       ...rawUser,
@@ -123,6 +123,13 @@ export function AuthProvider({ children }) {
           setSession(initialSession);
           if (initialSession?.user) {
             setUser(formatUser(initialSession.user));
+            // Auto-heal: If user_metadata contains a bulky data: URL from earlier, move it to localStorage and shrink the JWT token
+            if (initialSession.user.user_metadata?.avatar_url?.startsWith('data:')) {
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('prepsmart_user_avatar', initialSession.user.user_metadata.avatar_url);
+              }
+              supabase.auth.updateUser({ data: { avatar_url: 'local' } }).catch(() => {});
+            }
           }
           setLoading(false);
         }
@@ -368,8 +375,12 @@ export function AuthProvider({ children }) {
         }
 
         // 3. Update auth user metadata with the working avatar URL
+        // CRITICAL: NEVER store base64 Data URLs inside Supabase user_metadata!
+        // Supabase encodes user_metadata directly into the JWT token stored in cookies.
+        // A 20KB base64 Data URL causes cookie size > 16KB, which triggers HTTP ERROR 431!
+        const metadataAvatar = finalAvatarUrl?.startsWith('data:') ? 'local' : finalAvatarUrl;
         const updateRes = await supabase.auth.updateUser({
-          data: { avatar_url: finalAvatarUrl },
+          data: { avatar_url: metadataAvatar },
         });
 
         // 4. Update profiles table if it exists
