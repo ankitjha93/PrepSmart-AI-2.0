@@ -318,7 +318,10 @@ function Header() {
                   aria-label="User profile menu"
                 >
                   <Avatar className="w-8 h-8 group-hover:scale-105 transition-transform">
-                    <AvatarImage src={user.imageUrl} alt={user.fullName || "User"} />
+                    <AvatarImage 
+                      src={user.imageUrl || (typeof window !== 'undefined' ? localStorage.getItem('prepsmart_user_avatar') : null)} 
+                      alt={user.fullName || "User"} 
+                    />
                     <AvatarFallback>{userInitial}</AvatarFallback>
                   </Avatar>
                   <span className="hidden md:inline text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[110px] truncate">

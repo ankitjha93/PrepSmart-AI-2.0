@@ -21,10 +21,52 @@ export function AuthProvider({ children }) {
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes('your-anon-key')
   );
 
+  // Helper to compress an image file to an optimized, square Base64 data URL
+  const compressImageToDataUrl = (file, maxWidth = 256, quality = 0.85) => {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined') return resolve('');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const minDim = Math.min(img.width, img.height);
+          const startX = (img.width - minDim) / 2;
+          const startY = (img.height - minDim) / 2;
+
+          const targetDim = Math.min(minDim, maxWidth);
+          canvas.width = targetDim;
+          canvas.height = targetDim;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, targetDim, targetDim);
+
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error('Failed to load image for optimization'));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error('Failed to read image file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Helper to format a user object with Clerk backwards-compatibility
   const formatUser = (rawUser) => {
     if (!rawUser) return null;
     const email = rawUser.email || rawUser.user_metadata?.email || 'user@example.com';
+    const cachedAvatar = typeof window !== 'undefined' ? localStorage.getItem('prepsmart_user_avatar') : null;
+    
+    // Choose the best available avatar URL
+    const rawAvatar = rawUser.user_metadata?.avatar_url;
+    const avatarUrl =
+      rawAvatar && !rawAvatar.includes('undefined')
+        ? rawAvatar
+        : cachedAvatar ||
+          rawUser.imageUrl ||
+          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}`;
+
     return {
       ...rawUser,
       email,
@@ -35,9 +77,7 @@ export function AuthProvider({ children }) {
         rawUser.user_metadata?.full_name ||
         rawUser.user_metadata?.name ||
         email.split('@')[0],
-      imageUrl:
-        rawUser.user_metadata?.avatar_url ||
-        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}`,
+      imageUrl: avatarUrl,
     };
   };
 
@@ -294,71 +334,78 @@ export function AuthProvider({ children }) {
     }
 
     try {
+      // 1. Generate optimized square Data URL (compact ~20KB, crystal clear 256x256, 100% self-contained)
+      let finalAvatarUrl = null;
+      try {
+        finalAvatarUrl = await compressImageToDataUrl(file, 256, 0.88);
+      } catch {
+        finalAvatarUrl = URL.createObjectURL(file);
+      }
+
+      // 2. Attempt Supabase Storage upload if bucket exists and is configured
       if (isConfigured && !user.id?.startsWith('demo')) {
-        const fileExt = file.name.split('.').pop() || 'png';
-        const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+        try {
+          const fileExt = file.name.split('.').pop() || 'jpg';
+          const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
 
-        // 1. Upload to Supabase Storage bucket 'avatars'
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, file, { upsert: true });
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, file, { upsert: true });
 
-        if (uploadError) {
-          console.warn('Storage upload note:', uploadError.message);
+          if (!uploadError) {
+            const { data: publicUrlData } = supabase.storage
+              .from('avatars')
+              .getPublicUrl(fileName);
+
+            if (publicUrlData?.publicUrl) {
+              finalAvatarUrl = publicUrlData.publicUrl;
+            }
+          } else {
+            console.warn('Supabase storage upload note:', uploadError.message, '- Using optimized avatar fallback.');
+          }
+        } catch (storageErr) {
+          console.warn('Storage error, falling back to optimized data URL:', storageErr);
         }
 
-        // 2. Get Public URL
-        const { data: publicUrlData } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-
-        const avatarUrl = publicUrlData?.publicUrl || URL.createObjectURL(file);
-
-        // 3. Update auth user metadata
+        // 3. Update auth user metadata with the working avatar URL
         const updateRes = await supabase.auth.updateUser({
-          data: { avatar_url: avatarUrl },
+          data: { avatar_url: finalAvatarUrl },
         });
 
         // 4. Update profiles table if it exists
         try {
           await supabase
             .from('profiles')
-            .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+            .update({ avatar_url: finalAvatarUrl, updated_at: new Date().toISOString() })
             .eq('id', user.id);
         } catch {}
 
         if (updateRes.data?.user) {
           const updatedUser = formatUser(updateRes.data.user);
-          setUser(updatedUser);
+          setUser({ ...updatedUser, imageUrl: finalAvatarUrl });
+        } else {
+          setUser((prev) => (prev ? { ...prev, imageUrl: finalAvatarUrl } : null));
         }
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('prepsmart_auth_sync', `avatar-${Date.now()}`);
-        }
-
-        return { data: { avatarUrl }, error: null };
       } else {
-        // Fallback for Demo Mode or offline dev: Convert to persistent Data URL
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = reader.result;
-            const updated = {
-              ...user,
-              imageUrl: dataUrl,
-              user_metadata: { ...user.user_metadata, avatar_url: dataUrl },
-            };
-            setUser(updated);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('prepsmart_demo_user', JSON.stringify(updated));
-              localStorage.setItem('prepsmart_auth_sync', `avatar-${Date.now()}`);
-            }
-            resolve({ data: { avatarUrl: dataUrl }, error: null });
-          };
-          reader.onerror = () => resolve({ error: new Error('Failed to read image file') });
-          reader.readAsDataURL(file);
-        });
+        // Demo Mode
+        const updated = {
+          ...user,
+          imageUrl: finalAvatarUrl,
+          user_metadata: { ...user.user_metadata, avatar_url: finalAvatarUrl },
+        };
+        setUser(updated);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('prepsmart_demo_user', JSON.stringify(updated));
+        }
       }
+
+      // 5. Always persist to localStorage cache and broadcast to all tabs
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('prepsmart_user_avatar', finalAvatarUrl);
+        localStorage.setItem('prepsmart_auth_sync', `avatar-${Date.now()}`);
+      }
+
+      return { data: { avatarUrl: finalAvatarUrl }, avatarUrl: finalAvatarUrl, error: null };
     } catch (err) {
       return { error: err };
     }

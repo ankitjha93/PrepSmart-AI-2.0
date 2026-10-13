@@ -63,9 +63,21 @@ export default function AccountSettingsDialog({ open, onOpenChange }) {
   
   // Profile & Avatar state
   const [fullName, setFullName] = useState(user?.fullName || '');
+  const [previewAvatar, setPreviewAvatar] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('prepsmart_user_avatar') || user?.imageUrl || null;
+    }
+    return user?.imageUrl || null;
+  });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (user?.imageUrl) {
+      setPreviewAvatar(user.imageUrl);
+    }
+  }, [user?.imageUrl]);
 
   // Password state
   const [newPassword, setNewPassword] = useState('');
@@ -143,12 +155,18 @@ export default function AccountSettingsDialog({ open, onOpenChange }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Instant local preview for immediate visual feedback
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewAvatar(objectUrl);
+
     setIsUploadingAvatar(true);
     try {
       const res = await uploadAvatar(file);
       if (res?.error) {
         toast.error(res.error.message || 'Could not upload avatar image.');
       } else {
+        const newUrl = res?.data?.avatarUrl || res?.avatarUrl || objectUrl;
+        setPreviewAvatar(newUrl);
         toast.success('Profile avatar updated successfully!');
       }
     } catch {
@@ -397,9 +415,9 @@ export default function AccountSettingsDialog({ open, onOpenChange }) {
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex items-center gap-4">
                   <div className="relative group shrink-0">
                     <Avatar className="w-16 h-16 rounded-2xl border-2 border-blue-500/30 shadow-md">
-                      <AvatarImage src={user?.imageUrl} alt={user?.fullName} className="object-cover" />
+                      <AvatarImage src={previewAvatar || user?.imageUrl} alt={user?.fullName || "Candidate"} className="object-cover" />
                       <AvatarFallback className="bg-blue-600 text-white font-black text-lg">
-                        {user?.fullName?.charAt(0) || 'U'}
+                        {user?.fullName?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'C'}
                       </AvatarFallback>
                     </Avatar>
                     

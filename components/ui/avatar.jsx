@@ -18,6 +18,10 @@ Avatar.displayName = "Avatar"
 const AvatarImage = React.forwardRef(({ className, src, alt = "", ...props }, ref) => {
   const [hasError, setHasError] = React.useState(false)
 
+  React.useEffect(() => {
+    setHasError(false)
+  }, [src])
+
   if (!src || hasError) {
     return null
   }
