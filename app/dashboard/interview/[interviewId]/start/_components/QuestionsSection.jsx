@@ -69,8 +69,8 @@ function QuestionsSection({
     }
   }, [activeQuestionIndex]);
 
-  // Loading skeleton fallback if questions are still fetching
-  if (loading || !mockInterviewQuestion || mockInterviewQuestion.length === 0) {
+  // Loading skeleton fallback while interview session is loading
+  if (loading) {
     return (
       <div className="p-6 md:p-8 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-xl space-y-6 animate-pulse">
         <div className="flex gap-2">
@@ -84,6 +84,21 @@ function QuestionsSection({
           <div className="h-6 w-3/4 bg-slate-200 dark:bg-slate-800 rounded-xl" />
         </div>
         <div className="h-24 bg-slate-100 dark:bg-slate-800/50 rounded-2xl" />
+      </div>
+    );
+  }
+
+  // Graceful empty state fallback if no questions are available
+  if (!mockInterviewQuestion || mockInterviewQuestion.length === 0) {
+    return (
+      <div className="p-8 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-xl text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+          <HelpCircle className="w-6 h-6" />
+        </div>
+        <h3 className="font-bold text-slate-800 dark:text-white text-base">Questions Initializing...</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+          Preparing your AI-evaluated questions. If this takes longer than expected, refresh to reload the round.
+        </p>
       </div>
     );
   }

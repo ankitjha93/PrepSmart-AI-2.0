@@ -57,22 +57,86 @@ export const db = {
           }
         };
 
+// Helper to parse Drizzle eq/condition expressions into PostgREST filters
+function extractCondition(condition) {
+  if (!condition) return null;
+
+  // Direct properties if exposed
+  if (condition.left?.name && condition.right !== undefined) {
+    return { col: condition.left.name, val: condition.right };
+  }
+  if (condition.column?.name && condition.value !== undefined) {
+    return { col: condition.column.name, val: condition.value };
+  }
+
+  // Drizzle SQL queryChunks structure
+  if (Array.isArray(condition.queryChunks)) {
+    let col = null;
+    let val = undefined;
+
+    for (const chunk of condition.queryChunks) {
+      if (chunk?.name) {
+        col = chunk.name;
+      } else if (chunk?.column?.name) {
+        col = chunk.column.name;
+      }
+
+      if (chunk?.value !== undefined && !Array.isArray(chunk.value)) {
+        val = chunk.value;
+      }
+    }
+
+    if (col && val !== undefined) {
+      return { col, val };
+    }
+  }
+
+  return null;
+}
+
+// Helper to parse Drizzle order expressions
+function extractOrderBy(orderExp) {
+  if (!orderExp) return { col: 'id', ascending: false };
+
+  if (orderExp.column?.name) {
+    const isDesc = orderExp.direction === 'desc' || Boolean(orderExp.order);
+    return { col: orderExp.column.name, ascending: !isDesc };
+  }
+
+  if (Array.isArray(orderExp.queryChunks)) {
+    let col = 'id';
+    let isDesc = false;
+
+    for (const chunk of orderExp.queryChunks) {
+      if (chunk?.name) col = chunk.name;
+      if (
+        chunk?.value &&
+        Array.isArray(chunk.value) &&
+        chunk.value.some((s) => typeof s === 'string' && s.toLowerCase().includes('desc'))
+      ) {
+        isDesc = true;
+      }
+    }
+
+    return { col, ascending: !isDesc };
+  }
+
+  return { col: 'id', ascending: false };
+}
+
         const builder = {
           where: (condition) => {
-            if (condition) {
-              // Drizzle eq(column, value) structure
-              const colName = condition?.left?.name || condition?.column?.name || 'createdBy';
-              const val = condition?.right ?? condition?.value;
-              queryState.filters.push({ type: 'eq', col: colName, val });
+            const parsed = extractCondition(condition);
+            if (parsed) {
+              queryState.filters.push({ type: 'eq', col: parsed.col, val: parsed.val });
             }
             return builder;
           },
           orderBy: (orderExp) => {
-            if (orderExp) {
-              const col = orderExp?.column?.name || 'id';
-              const isDesc = orderExp?.direction === 'desc' || Boolean(orderExp?.order);
-              queryState.orderCol = col;
-              queryState.ascending = !isDesc;
+            const parsed = extractOrderBy(orderExp);
+            if (parsed) {
+              queryState.orderCol = parsed.col;
+              queryState.ascending = parsed.ascending;
             }
             return builder;
           },

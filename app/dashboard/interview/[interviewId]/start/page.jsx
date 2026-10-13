@@ -63,28 +63,78 @@ function StartInterview({ params }) {
         .from(MockInterview)
         .where(eq(MockInterview.mockId, params.interviewId));
 
+      const defaultQuestions = [
+        {
+          question: "In modern React, what is the purpose of the dependency array in useEffect, and what happens when it is omitted versus left empty?",
+          answer: "The dependency array specifies reactive values that trigger effect re-execution. If omitted, the effect runs after every single render. If passed as an empty array ([]), it runs only once after the initial mount and cleans up on unmount. If provided with dependencies ([prop, state]), it re-runs whenever any dependency changes by reference or value."
+        },
+        {
+          question: "Can you explain the difference between client-side rendering (CSR), server-side rendering (SSR), and static site generation (SSG)?",
+          answer: "CSR renders UI in the browser using JavaScript bundles. SSR generates full HTML on each incoming request for fresh data and SEO. SSG pre-renders static HTML at build time for maximum speed and CDN caching."
+        },
+        {
+          question: "How do you approach database performance optimization and indexing when query response times degrade under high traffic?",
+          answer: "Profile slow queries using EXPLAIN ANALYZE, establish B-Tree or composite indexes on frequently filtered and joined columns, eliminate N+1 queries with batching/eager loading, implement read replicas and Redis caching."
+        },
+        {
+          question: "Describe your strategy for securing web applications against Cross-Site Scripting (XSS) and Cross-Site Request Forgery (CSRF).",
+          answer: "Prevent XSS by sanitizing untrusted input, escaping output, using React's automated JSX escaping, and configuring Content Security Policy (CSP) headers. Prevent CSRF with SameSite cookie attributes, Anti-CSRF tokens, and verifying Origin/Referer headers."
+        },
+        {
+          question: "Describe a complex technical challenge you solved under a tight deadline and what trade-offs you navigated.",
+          answer: "Frame using the STAR technique (Situation, Task, Action, Result). State the technical bottleneck, architectural alternatives evaluated, trade-offs accepted, and how system reliability was maintained."
+        }
+      ];
+
       if (result && result.length > 0) {
         setInterviewData(result[0]);
 
         let questions = [];
         try {
           let raw = result[0].jsonMockResp || '';
-          raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(raw);
+          raw = raw.replace(/```json/gi, '').replace(/```/gi, '').trim();
+
+          // Try direct JSON parse
+          let parsed = null;
+          try {
+            parsed = JSON.parse(raw);
+          } catch (e1) {
+            // Attempt extracting array or object substring
+            const firstBracket = raw.indexOf('[');
+            const lastBracket = raw.lastIndexOf(']');
+            if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+              parsed = JSON.parse(raw.slice(firstBracket, lastBracket + 1));
+            } else {
+              const firstBrace = raw.indexOf('{');
+              const lastBrace = raw.lastIndexOf('}');
+              if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                parsed = JSON.parse(raw.slice(firstBrace, lastBrace + 1));
+              }
+            }
+          }
+
           if (Array.isArray(parsed)) {
             questions = parsed;
           } else if (parsed?.questions && Array.isArray(parsed.questions)) {
             questions = parsed.questions;
           } else if (parsed?.interviewQuestions && Array.isArray(parsed.interviewQuestions)) {
             questions = parsed.interviewQuestions;
-          } else {
+          } else if (parsed?.interview_questions && Array.isArray(parsed.interview_questions)) {
+            questions = parsed.interview_questions;
+          } else if (parsed && typeof parsed === 'object') {
             questions = [parsed];
           }
         } catch (parseErr) {
           console.warn("JSON parse fallback:", parseErr);
         }
 
-        setMockInterviewQuestion(questions);
+        // Normalize questions format
+        const normalized = (questions && questions.length > 0 ? questions : defaultQuestions).map((q, idx) => ({
+          question: q.question || q.Question || q.interview_question || q.interviewQuestion || q.q || `Interview Question #${idx + 1}`,
+          answer: q.answer || q.Answer || q.expected_answer || q.expectedAnswer || 'Focus on concrete examples, architectural fundamentals, and trade-offs.'
+        }));
+
+        setMockInterviewQuestion(normalized);
 
         // Fetch already submitted answers for this mock session
         try {
@@ -96,7 +146,7 @@ function StartInterview({ params }) {
           if (savedAnswers && savedAnswers.length > 0) {
             const answeredSet = new Set();
             savedAnswers.forEach((ans) => {
-              const idx = questions.findIndex((q) => q.question === ans.question);
+              const idx = normalized.findIndex((q) => q.question === ans.question);
               if (idx !== -1) answeredSet.add(idx);
             });
             setAnsweredIndices(answeredSet);
@@ -104,6 +154,14 @@ function StartInterview({ params }) {
         } catch (ansErr) {
           console.warn("Could not fetch user answers:", ansErr);
         }
+      } else {
+        // Fallback session state if row not returned yet
+        setInterviewData({
+          jobPosition: "Technical Mock Interview",
+          jobExperience: "3",
+          mockId: params.interviewId
+        });
+        setMockInterviewQuestion(defaultQuestions);
       }
     } catch (err) {
       console.error("Failed to fetch interview:", err);
