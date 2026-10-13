@@ -14,7 +14,8 @@ import {
   TrendingUp, 
   CheckCircle2, 
   Zap,
-  Target
+  Target,
+  Sliders
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -108,6 +109,15 @@ function Dashboard() {
             Design, simulate, and review your role-specific AI mock interviews in real time.
           </p>
         </div>
+
+        {/* Action button to re-trigger AI Role Calibration */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('prepsmart_open_onboarding'))}
+          className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm transition-all duration-200 hover:scale-[1.03] active:scale-95 hover:border-blue-500/50 group cursor-pointer"
+        >
+          <Sliders className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover:rotate-45 transition-transform" />
+          <span>Calibrate AI Persona</span>
+        </button>
       </div>
 
       {/* Candidate Quick Stats Row */}
