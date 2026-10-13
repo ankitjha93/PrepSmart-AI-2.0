@@ -298,17 +298,16 @@ function Header() {
           {user ? (
             <div className="flex items-center gap-2 sm:gap-3">
               {/* Quick "+ New Mock" shortcut */}
-              <Link href="/dashboard" className="hidden sm:inline-flex">
-                <Button 
-                  size="sm" 
-                  onMouseMove={handleMagneticMove}
-                  onMouseLeave={handleMagneticLeave}
-                  className="rounded-full px-3.5 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800 shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New Mock</span>
-                </Button>
-              </Link>
+              <button 
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('prepsmart_open_new_mock'))}
+                onMouseMove={handleMagneticMove}
+                onMouseLeave={handleMagneticLeave}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800 shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Mock</span>
+              </button>
 
               {/* User Avatar & Dropdown Trigger */}
               <div className="relative">
