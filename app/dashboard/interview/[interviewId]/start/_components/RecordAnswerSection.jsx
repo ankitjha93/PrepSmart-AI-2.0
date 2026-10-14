@@ -271,12 +271,30 @@ function RecordAnswerSection({
   const shouldRestartRecognitionRef = useRef(true);
   const networkRetriesRef = useRef(0);
   const recognitionTimeoutRef = useRef(null);
-  const finalTranscriptRef = useRef('');
-  const activeInterimRef = useRef('');
+  const baseTranscriptRef = useRef('');
+  const sessionFinalRef = useRef('');
+
+  // Start lively non-blocking HUD audio waveform animation
+  const startWaveformAnimation = () => {
+    let phase = 0;
+    const animateWave = () => {
+      if (!isRecordingRef.current) return;
+      phase += 0.25;
+      const bars = [];
+      for (let i = 0; i < 16; i++) {
+        const sine = Math.sin(phase + i * 0.45) * 0.5 + 0.5;
+        const normalized = Math.max(15, Math.min(100, Math.round(sine * 75 + 15)));
+        bars.push(normalized);
+      }
+      setAudioLevels(bars);
+      animFrameRef.current = requestAnimationFrame(animateWave);
+    };
+    animFrameRef.current = requestAnimationFrame(animateWave);
+  };
 
   // Fresh Speech Recognition Factory Lifecycle
   // In Chromium, ended SpeechRecognition instances cannot be restarted (.start() throws InvalidStateError).
-  // A new instance must be created for each session / conversational restart.
+  // A fresh instance must be created for each session / conversational pause restart.
   const startRecognitionSession = () => {
     if (!isRecordingRef.current || !shouldRestartRecognitionRef.current) return;
 
@@ -304,20 +322,32 @@ function RecordAnswerSection({
       recognition.lang = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) || 'en-US';
       recognition.maxAlternatives = 1;
 
+      recognition.onspeechstart = () => {
+        setVoiceVolume(85);
+      };
+
+      recognition.onspeechend = () => {
+        setVoiceVolume(20);
+      };
+
       recognition.onresult = (event) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcriptPart = event.results[i][0].transcript;
+        let sessionFinal = '';
+        let sessionInterim = '';
+
+        // Canonical MDN loop through all results in the current session
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            finalTranscriptRef.current += transcriptPart + ' ';
+            sessionFinal += event.results[i][0].transcript + ' ';
           } else {
-            interim += transcriptPart;
+            sessionInterim += event.results[i][0].transcript;
           }
         }
-        activeInterimRef.current = interim;
-        const currentCombined = (finalTranscriptRef.current + interim).trim();
+
+        sessionFinalRef.current = sessionFinal;
+        const currentCombined = (baseTranscriptRef.current + sessionFinal + sessionInterim).trim();
         setUserAnswer(currentCombined);
         latestTranscriptRef.current = currentCombined;
+        setVoiceVolume(Math.min(100, Math.max(35, sessionInterim.length * 5)));
       };
 
       recognition.onerror = (e) => {
@@ -334,7 +364,13 @@ function RecordAnswerSection({
       };
 
       recognition.onend = () => {
-        // Auto-restart with fresh instance across pauses while user is still in recording state
+        // Commit session final results to baseline transcript
+        if (sessionFinalRef.current) {
+          baseTranscriptRef.current += sessionFinalRef.current;
+          sessionFinalRef.current = '';
+        }
+
+        // Auto-restart across natural speaking pauses while user is still in recording state
         if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
           if (recognitionTimeoutRef.current) {
             clearTimeout(recognitionTimeoutRef.current);
@@ -343,7 +379,7 @@ function RecordAnswerSection({
             if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
               startRecognitionSession();
             }
-          }, 250);
+          }, 200);
         }
       };
 
@@ -359,66 +395,15 @@ function RecordAnswerSection({
     if (typeof window === 'undefined') return;
 
     try {
-      // 1. Audio Visualizer Setup (non-blocking)
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-          });
-          audioStreamRef.current = stream;
-
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          if (AudioCtx) {
-            const audioCtx = new AudioCtx();
-            audioContextRef.current = audioCtx;
-
-            const analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 64;
-            analyser.smoothingTimeConstant = 0.75;
-            analyserRef.current = analyser;
-
-            const source = audioCtx.createMediaStreamSource(stream);
-            source.connect(analyser);
-
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-            const updateWaveform = () => {
-              if (!analyserRef.current) return;
-              analyserRef.current.getByteFrequencyData(dataArray);
-
-              const bars = [];
-              let sum = 0;
-              const barCount = 16;
-              const step = Math.max(1, Math.floor(dataArray.length / barCount));
-
-              for (let i = 0; i < barCount; i++) {
-                const val = dataArray[i * step] || 0;
-                sum += val;
-                const normalizedHeight = Math.max(15, Math.min(100, (val / 255) * 100));
-                bars.push(normalizedHeight);
-              }
-
-              const avgVolume = Math.round(sum / barCount);
-              setVoiceVolume(avgVolume);
-              setAudioLevels(bars);
-
-              animFrameRef.current = requestAnimationFrame(updateWaveform);
-            };
-
-            updateWaveform();
-          }
-        } catch (visErr) {
-          console.warn('Visualizer stream notice:', visErr);
-        }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast.error('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+        return;
       }
 
-      // 2. Initialize Speech Recognition Engine
-      finalTranscriptRef.current = userAnswer ? userAnswer.trim() + ' ' : '';
-      activeInterimRef.current = '';
+      // 1. Initialize Baseline Transcript & Flags
+      baseTranscriptRef.current = userAnswer ? userAnswer.trim() + ' ' : '';
+      sessionFinalRef.current = '';
       networkRetriesRef.current = 0;
       shouldRestartRecognitionRef.current = true;
       isRecordingRef.current = true;
@@ -429,17 +414,22 @@ function RecordAnswerSection({
         recognitionTimeoutRef.current = null;
       }
 
+      // 2. Start HUD waveform animation (non-blocking, zero hardware audio lock)
+      startWaveformAnimation();
+
       toast.info('Recording started! Speak your answer clearly into your microphone.');
+
+      // 3. Launch dedicated speech recognition session
       startRecognitionSession();
     } catch (err) {
-      console.error('Microphone access error:', err);
+      console.error('Recording initialization error:', err);
       isRecordingRef.current = false;
       setIsRecording(false);
-      toast.error('Could not access microphone: ' + (err.message || 'Permission denied'));
+      toast.error('Could not start voice recording: ' + (err.message || 'Please try again.'));
     }
   };
 
-  // Fail-safe Stop Recording
+  // Stop Recording & Automatically Evaluate with Ollama AI
   const stopAudioRecording = () => {
     isRecordingRef.current = false;
     shouldRestartRecognitionRef.current = false;
@@ -463,7 +453,6 @@ function RecordAnswerSection({
 
     cleanupAudioVisualizer();
 
-    // Release all hardware microphone tracks
     if (audioStreamRef.current) {
       try {
         audioStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -471,10 +460,17 @@ function RecordAnswerSection({
       audioStreamRef.current = null;
     }
 
-    // Auto-evaluate if transcript captured
-    const candidateAnswer = (latestTranscriptRef.current || userAnswer || finalTranscriptRef.current || '').trim();
-    if (candidateAnswer.length >= 5) {
-      toast.info('Voice captured! Evaluating your response with Ollama AI...');
+    // Determine final candidate answer across all streams
+    const candidateAnswer = (
+      latestTranscriptRef.current ||
+      userAnswer ||
+      (baseTranscriptRef.current + (sessionFinalRef.current || '')) ||
+      ''
+    ).trim();
+
+    // Automatically evaluate with Ollama AI as requested
+    if (candidateAnswer && candidateAnswer.length >= 3) {
+      toast.info('Response captured! Evaluating with Ollama AI...');
       evaluateWithOllama(candidateAnswer);
     } else {
       toast.info('Recording stopped. Review or complete your answer above, then click "Save & Evaluate Answer".');
