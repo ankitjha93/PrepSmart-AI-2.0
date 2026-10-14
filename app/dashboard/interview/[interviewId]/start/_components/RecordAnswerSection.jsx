@@ -135,6 +135,16 @@ function RecordAnswerSection({
   useEffect(() => {
     return () => {
       cleanupAudioVisualizer();
+      if (recognitionTimeoutRef.current) {
+        clearTimeout(recognitionTimeoutRef.current);
+        recognitionTimeoutRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+        recognitionRef.current = null;
+      }
       if (audioStreamRef.current) {
         audioStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -259,6 +269,8 @@ function RecordAnswerSection({
 
   const isRecordingRef = useRef(false);
   const shouldRestartRecognitionRef = useRef(true);
+  const networkRetriesRef = useRef(0);
+  const recognitionTimeoutRef = useRef(null);
   const finalTranscriptRef = useRef('');
   const activeInterimRef = useRef('');
 
@@ -362,9 +374,14 @@ function RecordAnswerSection({
         console.warn('MediaRecorder setup notice:', recErr);
       }
 
-      // 5. Web Speech Recognition Engine with Continuous Auto-Restart
+      // 5. Web Speech Recognition Engine with Resilient Asynchronous Auto-Restart
       finalTranscriptRef.current = userAnswer ? userAnswer.trim() + ' ' : '';
       activeInterimRef.current = '';
+      networkRetriesRef.current = 0;
+      if (recognitionTimeoutRef.current) {
+        clearTimeout(recognitionTimeoutRef.current);
+        recognitionTimeoutRef.current = null;
+      }
 
       const SpeechRecognition = typeof window !== 'undefined'
         ? window.SpeechRecognition || window.webkitSpeechRecognition
@@ -375,7 +392,8 @@ function RecordAnswerSection({
           const recognition = new SpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
-          recognition.lang = 'en-US';
+          // Prefer browser's regional language for optimal Google Cloud Speech routing
+          recognition.lang = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) || 'en-US';
           recognition.maxAlternatives = 1;
 
           recognition.onresult = (event) => {
@@ -395,23 +413,38 @@ function RecordAnswerSection({
           };
 
           recognition.onerror = (e) => {
-            console.warn('Live SpeechRecognition error:', e.error);
+            console.debug('Speech recognition event:', e.error);
             if (e.error === 'not-allowed') {
               toast.error('Microphone permission was denied. Please allow microphone access in your browser address bar.');
               shouldRestartRecognitionRef.current = false;
             } else if (e.error === 'network') {
-              toast.info('Speech-to-text service network hiccup. You can continue speaking or type directly.');
+              // Silently manage network retry without displaying annoying popup toasts
+              networkRetriesRef.current += 1;
+              if (networkRetriesRef.current > 3) {
+                // If browser speech socket is persistently unreachable, cease auto-restart silently
+                shouldRestartRecognitionRef.current = false;
+              }
+            } else if (e.error === 'no-speech') {
+              // Completely normal during silent thinking pauses, do nothing
             }
           };
 
           recognition.onend = () => {
-            // Auto-restart speech engine across conversational pauses while recording is active
+            // Auto-restart speech engine across conversational pauses with safe asynchronous delay
+            // (Chromium requires a brief 250-300ms delay to transition speech state back to IDLE before restarting)
             if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
-              try {
-                recognition.start();
-              } catch (restartErr) {
-                // Ignore if already active
+              if (recognitionTimeoutRef.current) {
+                clearTimeout(recognitionTimeoutRef.current);
               }
+              recognitionTimeoutRef.current = setTimeout(() => {
+                if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
+                  try {
+                    recognition.start();
+                  } catch (restartErr) {
+                    console.debug('Recognition restart notice:', restartErr?.message);
+                  }
+                }
+              }, 300);
             }
           };
 
@@ -443,6 +476,11 @@ function RecordAnswerSection({
     shouldRestartRecognitionRef.current = false;
     setIsRecording(false);
 
+    if (recognitionTimeoutRef.current) {
+      clearTimeout(recognitionTimeoutRef.current);
+      recognitionTimeoutRef.current = null;
+    }
+
     // Stop Speech Recognition
     if (recognitionRef.current) {
       try {
@@ -472,12 +510,12 @@ function RecordAnswerSection({
     }
 
     // Auto-evaluate if transcript captured
-    const candidateAnswer = (latestTranscriptRef.current || userAnswer || '').trim();
+    const candidateAnswer = (latestTranscriptRef.current || userAnswer || finalTranscriptRef.current || '').trim();
     if (candidateAnswer.length >= 5) {
       toast.info('Voice captured! Evaluating your response with Ollama AI...');
       evaluateWithOllama(candidateAnswer);
     } else {
-      toast.info('Recording stopped. Review or type your answer, then click "Save & Evaluate Answer".');
+      toast.info('Recording stopped. Review or complete your answer above, then click "Save & Evaluate Answer".');
     }
   };
 
