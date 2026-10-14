@@ -274,194 +274,163 @@ function RecordAnswerSection({
   const finalTranscriptRef = useRef('');
   const activeInterimRef = useRef('');
 
-  // Start Audio Recording & Continuous Speech Recognition
-  const startAudioRecording = async () => {
-    // 1. Pre-check browser mediaDevices support
-    if (typeof window === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast.error('Microphone recording is not supported in this browser.');
-      return;
+  // Fresh Speech Recognition Factory Lifecycle
+  // In Chromium, ended SpeechRecognition instances cannot be restarted (.start() throws InvalidStateError).
+  // A new instance must be created for each session / conversational restart.
+  const startRecognitionSession = () => {
+    if (!isRecordingRef.current || !shouldRestartRecognitionRef.current) return;
+
+    const SpeechRecognition = typeof window !== 'undefined'
+      ? window.SpeechRecognition || window.webkitSpeechRecognition
+      : null;
+
+    if (!SpeechRecognition) return;
+
+    // Clean up previous instance handlers before creating new session
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
     }
 
     try {
-      audioChunksRef.current = [];
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) || 'en-US';
+      recognition.maxAlternatives = 1;
 
-      // 2. Request clean audio capture stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      audioStreamRef.current = stream;
-
-      // 3. Isolated Web Audio Visualizer Setup
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-          const audioCtx = new AudioCtx();
-          audioContextRef.current = audioCtx;
-
-          const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 64;
-          analyser.smoothingTimeConstant = 0.75;
-          analyserRef.current = analyser;
-
-          const source = audioCtx.createMediaStreamSource(stream);
-          source.connect(analyser);
-
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-          const updateWaveform = () => {
-            if (!analyserRef.current) return;
-            analyserRef.current.getByteFrequencyData(dataArray);
-
-            const bars = [];
-            let sum = 0;
-            const barCount = 16;
-            const step = Math.max(1, Math.floor(dataArray.length / barCount));
-
-            for (let i = 0; i < barCount; i++) {
-              const val = dataArray[i * step] || 0;
-              sum += val;
-              const normalizedHeight = Math.max(15, Math.min(100, (val / 255) * 100));
-              bars.push(normalizedHeight);
-            }
-
-            const avgVolume = Math.round(sum / barCount);
-            setVoiceVolume(avgVolume);
-            setAudioLevels(bars);
-
-            animFrameRef.current = requestAnimationFrame(updateWaveform);
-          };
-
-          updateWaveform();
+      recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcriptPart = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscriptRef.current += transcriptPart + ' ';
+          } else {
+            interim += transcriptPart;
+          }
         }
-      } catch (audioErr) {
-        console.warn('Audio visualization unavailable:', audioErr);
+        activeInterimRef.current = interim;
+        const currentCombined = (finalTranscriptRef.current + interim).trim();
+        setUserAnswer(currentCombined);
+        latestTranscriptRef.current = currentCombined;
+      };
+
+      recognition.onerror = (e) => {
+        console.debug('Speech recognition event:', e.error);
+        if (e.error === 'not-allowed') {
+          toast.error('Microphone permission was denied. Please allow microphone access in your browser address bar.');
+          shouldRestartRecognitionRef.current = false;
+        } else if (e.error === 'network') {
+          networkRetriesRef.current += 1;
+          if (networkRetriesRef.current > 4) {
+            shouldRestartRecognitionRef.current = false;
+          }
+        }
+      };
+
+      recognition.onend = () => {
+        // Auto-restart with fresh instance across pauses while user is still in recording state
+        if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
+          if (recognitionTimeoutRef.current) {
+            clearTimeout(recognitionTimeoutRef.current);
+          }
+          recognitionTimeoutRef.current = setTimeout(() => {
+            if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
+              startRecognitionSession();
+            }
+          }, 250);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.warn('SpeechRecognition session initiation notice:', err);
+    }
+  };
+
+  // Start Audio Recording & Real-time Speech Transcription
+  const startAudioRecording = async () => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      // 1. Audio Visualizer Setup (non-blocking)
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+          audioStreamRef.current = stream;
+
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            const audioCtx = new AudioCtx();
+            audioContextRef.current = audioCtx;
+
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 64;
+            analyser.smoothingTimeConstant = 0.75;
+            analyserRef.current = analyser;
+
+            const source = audioCtx.createMediaStreamSource(stream);
+            source.connect(analyser);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            const updateWaveform = () => {
+              if (!analyserRef.current) return;
+              analyserRef.current.getByteFrequencyData(dataArray);
+
+              const bars = [];
+              let sum = 0;
+              const barCount = 16;
+              const step = Math.max(1, Math.floor(dataArray.length / barCount));
+
+              for (let i = 0; i < barCount; i++) {
+                const val = dataArray[i * step] || 0;
+                sum += val;
+                const normalizedHeight = Math.max(15, Math.min(100, (val / 255) * 100));
+                bars.push(normalizedHeight);
+              }
+
+              const avgVolume = Math.round(sum / barCount);
+              setVoiceVolume(avgVolume);
+              setAudioLevels(bars);
+
+              animFrameRef.current = requestAnimationFrame(updateWaveform);
+            };
+
+            updateWaveform();
+          }
+        } catch (visErr) {
+          console.warn('Visualizer stream notice:', visErr);
+        }
       }
 
-      // 4. MediaRecorder initialization
-      try {
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : MediaRecorder.isTypeSupported('audio/mp4')
-          ? 'audio/mp4'
-          : '';
-
-        const mediaRecorder = mimeType
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream);
-
-        mediaRecorderRef.current = mediaRecorder;
-
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-          }
-        };
-
-        mediaRecorder.onstop = () => {
-          cleanupAudioVisualizer();
-          if (audioStreamRef.current) {
-            audioStreamRef.current.getTracks().forEach((track) => track.stop());
-            audioStreamRef.current = null;
-          }
-        };
-
-        mediaRecorder.start(250);
-      } catch (recErr) {
-        console.warn('MediaRecorder setup notice:', recErr);
-      }
-
-      // 5. Web Speech Recognition Engine with Resilient Asynchronous Auto-Restart
+      // 2. Initialize Speech Recognition Engine
       finalTranscriptRef.current = userAnswer ? userAnswer.trim() + ' ' : '';
       activeInterimRef.current = '';
       networkRetriesRef.current = 0;
+      shouldRestartRecognitionRef.current = true;
+      isRecordingRef.current = true;
+      setIsRecording(true);
+
       if (recognitionTimeoutRef.current) {
         clearTimeout(recognitionTimeoutRef.current);
         recognitionTimeoutRef.current = null;
       }
 
-      const SpeechRecognition = typeof window !== 'undefined'
-        ? window.SpeechRecognition || window.webkitSpeechRecognition
-        : null;
-
-      if (SpeechRecognition) {
-        try {
-          const recognition = new SpeechRecognition();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          // Prefer browser's regional language for optimal Google Cloud Speech routing
-          recognition.lang = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) || 'en-US';
-          recognition.maxAlternatives = 1;
-
-          recognition.onresult = (event) => {
-            let interim = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-              const transcriptPart = event.results[i][0].transcript;
-              if (event.results[i].isFinal) {
-                finalTranscriptRef.current += transcriptPart + ' ';
-              } else {
-                interim += transcriptPart;
-              }
-            }
-            activeInterimRef.current = interim;
-            const currentCombined = (finalTranscriptRef.current + interim).trim();
-            setUserAnswer(currentCombined);
-            latestTranscriptRef.current = currentCombined;
-          };
-
-          recognition.onerror = (e) => {
-            console.debug('Speech recognition event:', e.error);
-            if (e.error === 'not-allowed') {
-              toast.error('Microphone permission was denied. Please allow microphone access in your browser address bar.');
-              shouldRestartRecognitionRef.current = false;
-            } else if (e.error === 'network') {
-              // Silently manage network retry without displaying annoying popup toasts
-              networkRetriesRef.current += 1;
-              if (networkRetriesRef.current > 3) {
-                // If browser speech socket is persistently unreachable, cease auto-restart silently
-                shouldRestartRecognitionRef.current = false;
-              }
-            } else if (e.error === 'no-speech') {
-              // Completely normal during silent thinking pauses, do nothing
-            }
-          };
-
-          recognition.onend = () => {
-            // Auto-restart speech engine across conversational pauses with safe asynchronous delay
-            // (Chromium requires a brief 250-300ms delay to transition speech state back to IDLE before restarting)
-            if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
-              if (recognitionTimeoutRef.current) {
-                clearTimeout(recognitionTimeoutRef.current);
-              }
-              recognitionTimeoutRef.current = setTimeout(() => {
-                if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
-                  try {
-                    recognition.start();
-                  } catch (restartErr) {
-                    console.debug('Recognition restart notice:', restartErr?.message);
-                  }
-                }
-              }, 300);
-            }
-          };
-
-          shouldRestartRecognitionRef.current = true;
-          recognition.start();
-          recognitionRef.current = recognition;
-        } catch (speechErr) {
-          console.warn('SpeechRecognition initialization notice:', speechErr);
-        }
-      } else {
-        toast.info('Speech-to-text is not natively supported in this browser. You can type directly in the box.');
-      }
-
-      // 6. Update Active State
-      isRecordingRef.current = true;
-      setIsRecording(true);
       toast.info('Recording started! Speak your answer clearly into your microphone.');
+      startRecognitionSession();
     } catch (err) {
       console.error('Microphone access error:', err);
       isRecordingRef.current = false;
@@ -481,22 +450,15 @@ function RecordAnswerSection({
       recognitionTimeoutRef.current = null;
     }
 
-    // Stop Speech Recognition
+    // Stop Speech Recognition cleanly
     if (recognitionRef.current) {
       try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
         recognitionRef.current.stop();
       } catch (e) {}
       recognitionRef.current = null;
-    }
-
-    // Stop Media Recorder
-    if (mediaRecorderRef.current) {
-      try {
-        if (mediaRecorderRef.current.state !== 'inactive') {
-          mediaRecorderRef.current.stop();
-        }
-      } catch (e) {}
-      mediaRecorderRef.current = null;
     }
 
     cleanupAudioVisualizer();
