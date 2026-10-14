@@ -23,7 +23,8 @@ import {
   Star,
   Lightbulb,
   Target,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OllamaService } from '@/utils/OllamaAIModal';
@@ -47,15 +48,20 @@ function RecordAnswerSection({
   const [recordingTime, setRecordingTime] = useState(0);
   const [currentFeedback, setCurrentFeedback] = useState(null);
 
-  // Audio Visualizer State
+  // Audio Telemetry & Voice Catching State
   const [audioLevels, setAudioLevels] = useState([15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]);
   const [voiceVolume, setVoiceVolume] = useState(0);
+  const [voiceDetected, setVoiceDetected] = useState(false);
+  const [micSilenceWarning, setMicSilenceWarning] = useState(false);
+  const [micPermissionError, setMicPermissionError] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const audioStreamRef = useRef(null);
   const timerRef = useRef(null);
   const latestTranscriptRef = useRef('');
+  const maxVolumeSeenRef = useRef(0);
+  const recordingStartTimeRef = useRef(0);
 
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
@@ -164,6 +170,8 @@ function RecordAnswerSection({
     }
     setAudioLevels(new Array(16).fill(15));
     setVoiceVolume(0);
+    setVoiceDetected(false);
+    setMicSilenceWarning(false);
   };
 
   // Format seconds to mm:ss
@@ -274,24 +282,6 @@ function RecordAnswerSection({
   const baseTranscriptRef = useRef('');
   const sessionFinalRef = useRef('');
 
-  // Start lively non-blocking HUD audio waveform animation
-  const startWaveformAnimation = () => {
-    let phase = 0;
-    const animateWave = () => {
-      if (!isRecordingRef.current) return;
-      phase += 0.25;
-      const bars = [];
-      for (let i = 0; i < 16; i++) {
-        const sine = Math.sin(phase + i * 0.45) * 0.5 + 0.5;
-        const normalized = Math.max(15, Math.min(100, Math.round(sine * 75 + 15)));
-        bars.push(normalized);
-      }
-      setAudioLevels(bars);
-      animFrameRef.current = requestAnimationFrame(animateWave);
-    };
-    animFrameRef.current = requestAnimationFrame(animateWave);
-  };
-
   // Fresh Speech Recognition Factory Lifecycle
   // In Chromium, ended SpeechRecognition instances cannot be restarted (.start() throws InvalidStateError).
   // A fresh instance must be created for each session / conversational pause restart.
@@ -323,11 +313,12 @@ function RecordAnswerSection({
       recognition.maxAlternatives = 1;
 
       recognition.onspeechstart = () => {
-        setVoiceVolume(85);
+        setVoiceDetected(true);
+        setMicSilenceWarning(false);
       };
 
       recognition.onspeechend = () => {
-        setVoiceVolume(20);
+        // Speech ended
       };
 
       recognition.onresult = (event) => {
@@ -347,12 +338,17 @@ function RecordAnswerSection({
         const currentCombined = (baseTranscriptRef.current + sessionFinal + sessionInterim).trim();
         setUserAnswer(currentCombined);
         latestTranscriptRef.current = currentCombined;
-        setVoiceVolume(Math.min(100, Math.max(35, sessionInterim.length * 5)));
+
+        if (sessionInterim.length > 0 || sessionFinal.length > 0) {
+          setVoiceDetected(true);
+          setMicSilenceWarning(false);
+        }
       };
 
       recognition.onerror = (e) => {
         console.debug('Speech recognition event:', e.error);
         if (e.error === 'not-allowed') {
+          setMicPermissionError(true);
           toast.error('Microphone permission was denied. Please allow microphone access in your browser address bar.');
           shouldRestartRecognitionRef.current = false;
         } else if (e.error === 'network') {
@@ -390,18 +386,106 @@ function RecordAnswerSection({
     }
   };
 
-  // Start Audio Recording & Real-time Speech Transcription
+  // Start Audio Recording with Physical Hardware Voice Catching Telemetry
   const startAudioRecording = async () => {
     if (typeof window === 'undefined') return;
 
     try {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        toast.error('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
-        return;
+      setMicPermissionError(false);
+      setMicSilenceWarning(false);
+      setVoiceDetected(false);
+      maxVolumeSeenRef.current = 0;
+      recordingStartTimeRef.current = Date.now();
+
+      // 1. Request hardware microphone stream to verify voice catching
+      let stream = null;
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: true,
+            },
+          });
+          audioStreamRef.current = stream;
+
+          // Initialize Web Audio PCM RMS Volume Analyzer
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            const audioCtx = new AudioCtx();
+            audioContextRef.current = audioCtx;
+            if (audioCtx.state === 'suspended') {
+              await audioCtx.resume();
+            }
+
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 64;
+            analyser.smoothingTimeConstant = 0.6;
+            analyserRef.current = analyser;
+
+            const source = audioCtx.createMediaStreamSource(stream);
+            source.connect(analyser);
+
+            const freqData = new Uint8Array(analyser.frequencyBinCount);
+            const timeData = new Uint8Array(analyser.fftSize);
+
+            const updateMeter = () => {
+              if (!analyserRef.current || !isRecordingRef.current) return;
+              analyserRef.current.getByteFrequencyData(freqData);
+              analyserRef.current.getByteTimeDomainData(timeData);
+
+              // Calculate true physical microphone RMS volume (0 - 100)
+              let sumSquares = 0;
+              for (let i = 0; i < timeData.length; i++) {
+                const norm = (timeData[i] - 128) / 128;
+                sumSquares += norm * norm;
+              }
+              const rms = Math.sqrt(sumSquares / timeData.length);
+              const volume = Math.min(100, Math.round(rms * 280));
+              setVoiceVolume(volume);
+
+              if (volume > maxVolumeSeenRef.current) {
+                maxVolumeSeenRef.current = volume;
+              }
+
+              // Active voice detection threshold (>= 6%)
+              if (volume >= 6) {
+                setVoiceDetected(true);
+                setMicSilenceWarning(false);
+              } else {
+                // If 3.5 seconds have elapsed and microphone hasn't picked up vocal audio
+                if (Date.now() - recordingStartTimeRef.current > 3500 && maxVolumeSeenRef.current < 6) {
+                  setMicSilenceWarning(true);
+                }
+              }
+
+              // Dynamic audio spectrum waveform bars
+              const bars = [];
+              const step = Math.max(1, Math.floor(freqData.length / 16));
+              for (let i = 0; i < 16; i++) {
+                const val = freqData[i * step] || 0;
+                const height = Math.max(15, Math.min(100, Math.round((val / 255) * 85 + 15)));
+                bars.push(height);
+              }
+              setAudioLevels(bars);
+
+              animFrameRef.current = requestAnimationFrame(updateMeter);
+            };
+
+            updateMeter();
+          }
+        } catch (micErr) {
+          console.warn('Microphone stream access notice:', micErr);
+          if (micErr.name === 'NotAllowedError' || micErr.name === 'PermissionDeniedError') {
+            setMicPermissionError(true);
+            toast.error('Microphone access blocked. Please allow mic permissions in your browser.');
+            return;
+          }
+        }
       }
 
-      // 1. Initialize Baseline Transcript & Flags
+      // 2. Initialize Baseline Transcript & Flags
       baseTranscriptRef.current = userAnswer ? userAnswer.trim() + ' ' : '';
       sessionFinalRef.current = '';
       networkRetriesRef.current = 0;
@@ -413,9 +497,6 @@ function RecordAnswerSection({
         clearTimeout(recognitionTimeoutRef.current);
         recognitionTimeoutRef.current = null;
       }
-
-      // 2. Start HUD waveform animation (non-blocking, zero hardware audio lock)
-      startWaveformAnimation();
 
       toast.info('Recording started! Speak your answer clearly into your microphone.');
 
@@ -434,6 +515,8 @@ function RecordAnswerSection({
     isRecordingRef.current = false;
     shouldRestartRecognitionRef.current = false;
     setIsRecording(false);
+    setVoiceDetected(false);
+    setMicSilenceWarning(false);
 
     if (recognitionTimeoutRef.current) {
       clearTimeout(recognitionTimeoutRef.current);
@@ -531,13 +614,13 @@ function RecordAnswerSection({
                 <div className="flex items-center gap-2">
                   <span
                     className={`w-2.5 h-2.5 rounded-full transition-all duration-200 ${
-                      voiceVolume > 5
+                      voiceVolume >= 6
                         ? 'bg-emerald-400 shadow-[0_0_12px_#34d399] scale-125'
                         : 'bg-amber-400 animate-pulse'
                     }`}
                   />
                   <span className="text-xs font-bold text-white tracking-wide">
-                    {voiceVolume > 5 ? 'Hearing Your Voice' : 'Listening... Speak Your Answer'}
+                    {voiceVolume >= 6 ? `Voice Caught: Active Speech (${voiceVolume}%)` : 'Listening... Speak Your Answer'}
                   </span>
                 </div>
 
@@ -553,7 +636,7 @@ function RecordAnswerSection({
                     key={idx}
                     style={{ height: `${lvl}%` }}
                     className={`w-2 rounded-full transition-all duration-75 ease-out ${
-                      voiceVolume > 5
+                      voiceVolume >= 6
                         ? 'bg-gradient-to-t from-blue-600 via-teal-400 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)]'
                         : 'bg-gradient-to-t from-slate-600 to-slate-500 opacity-50'
                     }`}
@@ -578,6 +661,27 @@ function RecordAnswerSection({
         </div>
       </div>
 
+      {/* Real-time Voice Catching Telemetry Alerts */}
+      {isRecording && micSilenceWarning && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-bold shadow-lg animate-pulse">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="font-extrabold text-amber-600 dark:text-amber-300">Microphone is not catching your voice.</p>
+            <p className="font-normal opacity-90 mt-0.5">Please check that your physical microphone is unmuted, properly selected in your browser, and speak directly into the mic.</p>
+          </div>
+        </div>
+      )}
+
+      {micPermissionError && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-900 dark:text-rose-200 text-xs font-bold shadow-lg">
+          <AlertTriangle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="font-extrabold text-rose-600 dark:text-rose-300">Microphone permission blocked.</p>
+            <p className="font-normal opacity-90 mt-0.5">Please click the lock or camera icon in your browser address bar and set Microphone to "Allow" to record voice answers.</p>
+          </div>
+        </div>
+      )}
+
       {/* ANSWER TRANSCRIPT TERMINAL & INPUT BOX */}
       <div className="w-full space-y-2 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-xl">
         <div className="flex items-center justify-between pb-1">
@@ -585,10 +689,17 @@ function RecordAnswerSection({
             <MessageSquareQuote className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <span>Your Transcribed Response</span>
             {isRecording && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-300 animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
-                Live Recording
-              </span>
+              voiceVolume >= 6 ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-500/30 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Voice Caught ({voiceVolume}%)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-300 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                  Live Recording • Awaiting Speech
+                </span>
+              )
             )}
           </label>
 
