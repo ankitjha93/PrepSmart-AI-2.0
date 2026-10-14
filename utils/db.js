@@ -14,49 +14,6 @@ function getClient() {
   return createClient();
 }
 
-/**
- * Universal Database Client for Supabase PostgreSQL
- * Provides Drizzle-compatible query builder syntax mapped directly to Supabase PostgREST
- */
-export const db = {
-  select: () => {
-    return {
-      from: (table) => {
-        const tableName = getTableName(table);
-        const queryState = {
-          tableName,
-          filters: [],
-          orderCol: null,
-          ascending: false,
-        };
-
-        const execute = async () => {
-          try {
-            const supabase = getClient();
-            let query = supabase.from(queryState.tableName).select('*');
-
-            for (const filter of queryState.filters) {
-              if (filter.type === 'eq') {
-                query = query.eq(filter.col, filter.val);
-              }
-            }
-
-            if (queryState.orderCol) {
-              query = query.order(queryState.orderCol, { ascending: queryState.ascending });
-            }
-
-            const { data, error } = await query;
-            if (error) {
-              console.warn(`Supabase select error on ${queryState.tableName}:`, error.message);
-              return [];
-            }
-            return data || [];
-          } catch (e) {
-            console.warn(`Database select failed on ${queryState.tableName}:`, e?.message);
-            return [];
-          }
-        };
-
 // Helper to parse Drizzle eq/condition expressions into PostgREST filters
 function extractCondition(condition) {
   if (!condition) return null;
@@ -131,6 +88,49 @@ function extractOrderBy(orderExp) {
 
   return { col: 'id', ascending: false };
 }
+
+/**
+ * Universal Database Client for Supabase PostgreSQL
+ * Provides Drizzle-compatible query builder syntax mapped directly to Supabase PostgREST
+ */
+export const db = {
+  select: () => {
+    return {
+      from: (table) => {
+        const tableName = getTableName(table);
+        const queryState = {
+          tableName,
+          filters: [],
+          orderCol: null,
+          ascending: false,
+        };
+
+        const execute = async () => {
+          try {
+            const supabase = getClient();
+            let query = supabase.from(queryState.tableName).select('*');
+
+            for (const filter of queryState.filters) {
+              if (filter.type === 'eq') {
+                query = query.eq(filter.col, filter.val);
+              }
+            }
+
+            if (queryState.orderCol) {
+              query = query.order(queryState.orderCol, { ascending: queryState.ascending });
+            }
+
+            const { data, error } = await query;
+            if (error) {
+              console.warn(`Supabase select error on ${queryState.tableName}:`, error.message);
+              return [];
+            }
+            return data || [];
+          } catch (e) {
+            console.warn(`Database select failed on ${queryState.tableName}:`, e?.message);
+            return [];
+          }
+        };
 
         const builder = {
           where: (condition) => {
@@ -215,6 +215,44 @@ function extractOrderBy(orderExp) {
         return insertBuilder;
       },
     };
+  },
+
+  delete: (table) => {
+    const tableName = getTableName(table);
+    let filter = null;
+
+    const execute = async () => {
+      try {
+        const supabase = getClient();
+        let query = supabase.from(tableName).delete();
+        if (filter) {
+          query = query.eq(filter.col, filter.val);
+        }
+        const { data, error } = await query;
+        if (error) {
+          console.warn(`Supabase delete error on ${tableName}:`, error.message);
+          return null;
+        }
+        return data || true;
+      } catch (e) {
+        console.warn(`Database delete failed on ${tableName}:`, e?.message);
+        return null;
+      }
+    };
+
+    const deleteBuilder = {
+      where: (condition) => {
+        const parsed = extractCondition(condition);
+        if (parsed) {
+          filter = { col: parsed.col, val: parsed.val };
+        }
+        return deleteBuilder;
+      },
+      then: (onfulfilled, onrejected) => execute().then(onfulfilled, onrejected),
+      catch: (onrejected) => execute().catch(onrejected),
+    };
+
+    return deleteBuilder;
   },
 };
 

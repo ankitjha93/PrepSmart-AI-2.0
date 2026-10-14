@@ -159,7 +159,7 @@ function Dashboard() {
       </div>
 
       {/* Previous Interview List */}
-      <div className='dash-header mt-10'>
+      <div className='mt-10'>
         <InterviewList />
       </div>
     </div>
