@@ -22,7 +22,7 @@ import {
   MessageSquareQuote
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { chatSession } from '@/utils/GeminiAIModal';
+import { OllamaService } from '@/utils/OllamaAIModal';
 import { db } from '@/utils/db';
 import { UserAnswer } from '@/utils/schema';
 import { useAuth } from '@/context/AuthContext';
@@ -120,13 +120,79 @@ function RecordAnswerSection({
     gsap.to(e.currentTarget, { x: 0, y: 0, duration: 0.4, ease: "elastic.out(1, 0.4)" });
   };
 
+  const recognitionRef = useRef(null);
+  const [ollamaInfo, setOllamaInfo] = useState({ online: false, model: 'llama3.2' });
+
+  // Probe Ollama local engine status
+  useEffect(() => {
+    OllamaService.checkStatus().then((status) => {
+      setOllamaInfo({
+        online: Boolean(status.online),
+        model: status.activeModel || status.model || 'llama3.2',
+      });
+    });
+  }, []);
+
+  const evaluateWithOllama = async (textAnswer) => {
+    const answerToEval = (textAnswer || userAnswer || '').trim();
+    if (answerToEval.length < 5) {
+      toast.info('Please speak or type a complete answer before evaluation.');
+      return;
+    }
+
+    setLoading(true);
+    toast.loading(`Evaluating with Ollama (${ollamaInfo.model || 'llama3.2'})...`);
+
+    const currentQuestion = mockInterviewQuestion?.[activeQuestionIndex]?.question;
+    const correctAnswer = mockInterviewQuestion?.[activeQuestionIndex]?.answer;
+
+    try {
+      const evalRes = await OllamaService.evaluateAnswer({
+        question: currentQuestion,
+        correctAnswer: correctAnswer,
+        userAnswer: answerToEval,
+        model: ollamaInfo.model || 'llama3.2',
+      });
+
+      const userEmail = user?.email || user?.primaryEmailAddress?.emailAddress || 'candidate@prepsmart.ai';
+
+      try {
+        await db.insert(UserAnswer).values({
+          mockIdRef: interviewData?.mockId,
+          question: currentQuestion,
+          correctAns: correctAnswer,
+          userAns: answerToEval,
+          feedback: evalRes?.feedback || 'Good effort.',
+          rating: String(evalRes?.rating || '7'),
+          userEmail: userEmail,
+          createdAt: moment().format('DD-MM-yyyy'),
+        });
+
+        toast.dismiss();
+        toast.success(`Answer scored ${evalRes?.rating || 7}/10 by Ollama AI!`);
+        if (onAnswerSaved) onAnswerSaved();
+      } catch (dbErr) {
+        console.warn('DB insert fallback:', dbErr);
+        toast.dismiss();
+        toast.success(`Answer evaluated (${evalRes?.rating || 7}/10) by Ollama AI!`);
+        if (onAnswerSaved) onAnswerSaved();
+      }
+    } catch (err) {
+      console.error('Error evaluating answer with Ollama:', err);
+      toast.dismiss();
+      toast.error('Could not evaluate answer: ' + (err.message || 'Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startAudioRecording = async () => {
     try {
       audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
 
-      // Setup Real-time Web Audio Analyser for Voice Visualization
+      // Setup Real-time Web Audio Analyser for Voice Waveform
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioCtx();
@@ -143,7 +209,8 @@ function RecordAnswerSection({
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
         const updateWaveform = () => {
-          analyser.getByteFrequencyData(dataArray);
+          if (!analyserRef.current) return;
+          analyserRef.current.getByteFrequencyData(dataArray);
 
           const bars = [];
           let sum = 0;
@@ -186,19 +253,43 @@ function RecordAnswerSection({
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         cleanupAudioVisualizer();
 
         if (audioStreamRef.current) {
           audioStreamRef.current.getTracks().forEach((track) => track.stop());
         }
 
-        if (audioBlob.size > 1000) {
-          await processAudioWithGemini(audioBlob, mimeType);
-        } else {
-          toast.error('Audio recording was too short. Please try again.');
-        }
+        // When recording stops, prompt candidate or automatically evaluate
+        toast.info('Voice recorded! Review your transcribed answer below or click Save & Evaluate.');
       };
+
+      // Start Browser Web Speech Recognition for live transcription
+      if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        try {
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+
+          recognition.onresult = (event) => {
+            let fullTranscript = '';
+            for (let i = 0; i < event.results.length; i++) {
+              fullTranscript += event.results[i][0].transcript + ' ';
+            }
+            setUserAnswer(fullTranscript.trim());
+          };
+
+          recognition.onerror = (e) => {
+            console.warn('Live SpeechRecognition notice:', e.error);
+          };
+
+          recognition.start();
+          recognitionRef.current = recognition;
+        } catch (speechErr) {
+          console.warn('SpeechRecognition initiation notice:', speechErr);
+        }
+      }
 
       mediaRecorder.start();
       setIsRecording(true);
@@ -214,6 +305,11 @@ function RecordAnswerSection({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
   };
 
   const toggleRecording = () => {
@@ -224,137 +320,9 @@ function RecordAnswerSection({
     }
   };
 
-  const blobToBase64 = (blob) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result.split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  };
-
-  const processAudioWithGemini = async (audioBlob, mimeType) => {
-    setLoading(true);
-    toast.loading('Processing audio with Gemini 3.5 AI...');
-
-    try {
-      const base64Audio = await blobToBase64(audioBlob);
-      const currentQuestion = mockInterviewQuestion?.[activeQuestionIndex]?.question;
-      const correctAnswer = mockInterviewQuestion?.[activeQuestionIndex]?.answer;
-
-      const prompt = `You are an expert AI interviewer evaluating a candidate's spoken response.
-Interview Question: "${currentQuestion}"
-Target Answer / Key Concepts: "${correctAnswer}"
-
-Listen carefully to the candidate's audio answer and respond strictly in valid JSON format:
-{
-  "userAns": "The full transcribed text of what the candidate said in the audio",
-  "rating": "Rating from 1 to 10 evaluating technical accuracy, completeness, and delivery",
-  "feedback": "Constructive feedback and specific areas for improvement in 3 to 5 concise sentences"
-}`;
-
-      const baseMime = mimeType.split(';')[0];
-      const result = await chatSession.sendMessage([
-        {
-          inlineData: {
-            mimeType: baseMime,
-            data: base64Audio,
-          },
-        },
-        prompt,
-      ]);
-
-      const rawText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(rawText);
-
-      if (parsed?.userAns) {
-        setUserAnswer(parsed.userAns);
-      }
-
-      // Save to database
-      const userEmail = user?.email || user?.primaryEmailAddress?.emailAddress || 'candidate@prepsmart.ai';
-      try {
-        const resp = await db.insert(UserAnswer).values({
-          mockIdRef: interviewData?.mockId,
-          question: currentQuestion,
-          correctAns: correctAnswer,
-          userAns: parsed?.userAns || 'Audio Answer',
-          feedback: parsed?.feedback || 'Good effort.',
-          rating: String(parsed?.rating || '7'),
-          userEmail: userEmail,
-          createdAt: moment().format('DD-MM-yyyy'),
-        });
-
-        if (resp) {
-          toast.dismiss();
-          toast.success('Spoken answer transcribed & AI feedback saved!');
-          if (onAnswerSaved) onAnswerSaved();
-        }
-      } catch (dbErr) {
-        console.warn('DB insert fallback:', dbErr);
-        toast.dismiss();
-        toast.success('Spoken answer transcribed & evaluated by Gemini AI!');
-        if (onAnswerSaved) onAnswerSaved();
-      }
-    } catch (err) {
-      console.error('Error processing audio with Gemini:', err);
-      toast.dismiss();
-      toast.error('Could not process audio: ' + (err.message || 'Please try again or edit below.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fallback for manually typed / edited answers
+  // Manual save & evaluation trigger
   const saveManualAnswer = async () => {
-    if (!userAnswer || userAnswer.trim().length < 5) {
-      toast.error('Please enter an answer before saving.');
-      return;
-    }
-
-    setLoading(true);
-    const currentQuestion = mockInterviewQuestion?.[activeQuestionIndex]?.question;
-    const correctAnswer = mockInterviewQuestion?.[activeQuestionIndex]?.answer;
-
-    const prompt = `Question: "${currentQuestion}", User Answer: "${userAnswer}". ` +
-      `Based on the interview question and the user's answer, provide a rating (from 1 to 10) and concise constructive feedback (3-5 lines) on areas of improvement in valid JSON format with keys "rating" and "feedback".`;
-
-    try {
-      const result = await chatSession.sendMessage(prompt);
-      const rawText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(rawText);
-
-      const userEmail = user?.email || user?.primaryEmailAddress?.emailAddress || 'candidate@prepsmart.ai';
-      try {
-        const resp = await db.insert(UserAnswer).values({
-          mockIdRef: interviewData?.mockId,
-          question: currentQuestion,
-          correctAns: correctAnswer,
-          userAns: userAnswer,
-          feedback: parsed?.feedback,
-          rating: String(parsed?.rating),
-          userEmail: userEmail,
-          createdAt: moment().format('DD-MM-yyyy'),
-        });
-
-        if (resp) {
-          toast.success('Answer and AI evaluation saved successfully!');
-          if (onAnswerSaved) onAnswerSaved();
-        }
-      } catch (dbErr) {
-        console.warn('DB insert fallback:', dbErr);
-        toast.success('Answer evaluated by Gemini AI!');
-        if (onAnswerSaved) onAnswerSaved();
-      }
-    } catch (err) {
-      console.error('Error saving manual answer:', err);
-      toast.error('Failed to save answer: ' + (err.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
+    await evaluateWithOllama(userAnswer);
   };
 
   const wordCount = userAnswer.trim() ? userAnswer.trim().split(/\s+/).filter(Boolean).length : 0;
@@ -385,7 +353,7 @@ Listen carefully to the candidate's audio answer and respond strictly in valid J
         {/* HUD Overlay: Transcriber Armed (Top-Right) */}
         <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600/70 backdrop-blur-md border border-blue-400/30 text-white text-[11px] font-bold shadow-lg">
           <BrainCircuit className="w-3.5 h-3.5 text-blue-200" />
-          <span>Gemini Speech AI Armed</span>
+          <span>Ollama AI Evaluator Armed</span>
         </div>
 
         {/* FLOATING REAL-TIME AUDIO EQUALIZER DOCK (Bottom Center) */}

@@ -240,7 +240,7 @@ function StartInterview({ params }) {
                 </Badge>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                {interviewData?.jobExperience || "3"} Years Seniority • Evaluated by Gemini 3.5 AI
+                {interviewData?.jobExperience || "3"} Years Seniority • Evaluated by Ollama AI
               </p>
             </div>
           </div>

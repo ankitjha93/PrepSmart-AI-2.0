@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { chatSession } from '@/utils/GeminiAIModal';
+import { OllamaService } from '@/utils/OllamaAIModal';
 import { 
   LoaderCircle, 
   Plus, 
@@ -112,9 +112,21 @@ function AddNewInterview() {
   const [questionCount, setQuestionCount] = useState(5);
   const [activePreset, setActivePreset] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [ollamaInfo, setOllamaInfo] = useState({ online: false, model: 'llama3.2' });
   const contentRef = useRef(null);
   const router = useRouter();
   const { user } = useAuth();
+
+  // Probe Ollama local engine status
+  useEffect(() => {
+    OllamaService.checkStatus().then((status) => {
+      setOllamaInfo({
+        online: Boolean(status.online),
+        model: status.activeModel || status.model || 'llama3.2',
+        models: status.models || [],
+      });
+    });
+  }, []);
 
   // Listen for global modal open triggers (e.g. from navbar "+ New Mock")
   useEffect(() => {
@@ -187,11 +199,18 @@ function AddNewInterview() {
 
     try {
       const count = questionCount || process.env.NEXT_PUBLIC_INTERVIEW_QUESTION_COUNT || 5;
-      const InputPrompt = `Job position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}, Depends on Job Position, Job Description & Years of Experience give us ${count} Interview question along with Answer in JSON format, Give us question and answer field on JSON`;
+      toast.loading(`Synthesizing questions via Ollama (${ollamaInfo.model || 'llama3.2'})...`);
 
-      const result = await chatSession.sendMessage(InputPrompt);
-      const rawText = result.response.text();
-      const MockJsonResp = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const genRes = await OllamaService.generateQuestions({
+        jobPosition,
+        jobDesc,
+        jobExperience,
+        questionCount: count,
+        model: ollamaInfo.model || 'llama3.2',
+      });
+      toast.dismiss();
+
+      const MockJsonResp = genRes?.rawJson || JSON.stringify(genRes?.questions || []);
 
       if (MockJsonResp) {
         const userEmail = user?.email || user?.primaryEmailAddress?.emailAddress || 'candidate@prepsmart.ai';
@@ -220,7 +239,7 @@ function AddNewInterview() {
           }
         } catch (dbErr) {
           console.warn('DB insert fallback:', dbErr);
-          toast.success('Interview generated! (Local preview mode)');
+          toast.success('Interview generated via Ollama! (Local preview mode)');
           setOpenDailog(false);
           router.push('/dashboard/interview/' + newMockId);
         }
@@ -229,6 +248,7 @@ function AddNewInterview() {
       }
     } catch (err) {
       console.error('Failed to generate interview:', err);
+      toast.dismiss();
       toast.error(err.message || 'Failed to generate interview questions.');
     } finally {
       setLoading(false);
@@ -263,8 +283,9 @@ function AddNewInterview() {
         onClick={() => setOpenDailog(true)}
       >
         <div className="absolute top-3 right-3">
-          <Badge variant="blue" className="text-[10px] font-black uppercase tracking-wider">
-            <Sparkles className="w-2.5 h-2.5 mr-1" /> Gemini 3.5
+          <Badge variant="blue" className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${ollamaInfo.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+            Ollama {ollamaInfo.model || 'llama3.2'}
           </Badge>
         </div>
         <div className="plus-icon w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-colors shadow-sm">
@@ -306,8 +327,9 @@ function AddNewInterview() {
                       <DialogTitle className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                         Configure Your Mock Interview
                       </DialogTitle>
-                      <Badge variant="gradient" className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 shadow-sm">
-                        Gemini 3.5
+                      <Badge variant="gradient" className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${ollamaInfo.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                        Ollama {ollamaInfo.model || 'llama3.2'}
                       </Badge>
                     </div>
                     <DialogDescription className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium">
