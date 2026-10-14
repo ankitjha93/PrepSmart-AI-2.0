@@ -1,5 +1,5 @@
-import { createClient } from './supabase/client';
-import { MockInterview, UserAnswer } from './schema';
+import { createClient } from './supabase/client.js';
+import { MockInterview, UserAnswer } from './schema.js';
 
 // Helper to extract table name from Drizzle table or string
 function getTableName(table) {
@@ -63,10 +63,14 @@ function extractCondition(condition) {
 
   // Direct properties if exposed
   if (condition.left?.name && condition.right !== undefined) {
-    return { col: condition.left.name, val: condition.right };
+    let col = condition.left.name;
+    if (col === 'mockIdRef') col = 'mockId';
+    return { col, val: condition.right };
   }
   if (condition.column?.name && condition.value !== undefined) {
-    return { col: condition.column.name, val: condition.value };
+    let col = condition.column.name;
+    if (col === 'mockIdRef') col = 'mockId';
+    return { col, val: condition.value };
   }
 
   // Drizzle SQL queryChunks structure
@@ -87,6 +91,7 @@ function extractCondition(condition) {
     }
 
     if (col && val !== undefined) {
+      if (col === 'mockIdRef') col = 'mockId';
       return { col, val };
     }
   }
@@ -99,8 +104,10 @@ function extractOrderBy(orderExp) {
   if (!orderExp) return { col: 'id', ascending: false };
 
   if (orderExp.column?.name) {
+    let col = orderExp.column.name;
+    if (col === 'mockIdRef') col = 'mockId';
     const isDesc = orderExp.direction === 'desc' || Boolean(orderExp.order);
-    return { col: orderExp.column.name, ascending: !isDesc };
+    return { col, ascending: !isDesc };
   }
 
   if (Array.isArray(orderExp.queryChunks)) {
@@ -118,6 +125,7 @@ function extractOrderBy(orderExp) {
       }
     }
 
+    if (col === 'mockIdRef') col = 'mockId';
     return { col, ascending: !isDesc };
   }
 
@@ -152,14 +160,29 @@ function extractOrderBy(orderExp) {
   insert: (table) => {
     const tableName = getTableName(table);
 
+    const normalizeRow = (row) => {
+      if (!row || typeof row !== 'object') return row;
+      const copy = { ...row };
+      if (copy.mockIdRef !== undefined) {
+        if (copy.mockId === undefined) {
+          copy.mockId = copy.mockIdRef;
+        }
+        delete copy.mockIdRef;
+      }
+      return copy;
+    };
+
     return {
       values: (valuesObj) => {
         let returnCols = null;
+        const normalizedPayload = Array.isArray(valuesObj)
+          ? valuesObj.map(normalizeRow)
+          : normalizeRow(valuesObj);
 
         const execute = async () => {
           try {
             const supabase = getClient();
-            let query = supabase.from(tableName).insert(valuesObj);
+            let query = supabase.from(tableName).insert(normalizedPayload);
 
             if (returnCols) {
               query = query.select(returnCols);
@@ -168,13 +191,13 @@ function extractOrderBy(orderExp) {
             const { data, error } = await query;
             if (error) {
               console.warn(`Supabase insert error on ${tableName}:`, error.message);
-              return returnCols ? [{ mockId: valuesObj.mockId }] : null;
+              return returnCols ? [{ mockId: normalizedPayload?.mockId }] : null;
             }
 
-            return data || (returnCols ? [{ mockId: valuesObj.mockId }] : null);
+            return data || (returnCols ? [{ mockId: normalizedPayload?.mockId }] : null);
           } catch (e) {
             console.warn(`Database insert failed on ${tableName}:`, e?.message);
-            return returnCols ? [{ mockId: valuesObj.mockId }] : null;
+            return returnCols ? [{ mockId: normalizedPayload?.mockId }] : null;
           }
         };
 

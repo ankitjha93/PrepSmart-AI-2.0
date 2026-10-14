@@ -296,6 +296,7 @@ function StartInterview({ params }) {
             mockInterviewQuestion={mockInterviewQuestion}
             activeQuestionIndex={activeQuestionIndex}
             interviewData={interviewData}
+            interviewId={params.interviewId}
             onAnswerSaved={() => handleAnswerSaved(activeQuestionIndex)}
           />
         </div>

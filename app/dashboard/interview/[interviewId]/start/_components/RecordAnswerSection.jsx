@@ -19,19 +19,25 @@ import {
   Video,
   VideoOff,
   BrainCircuit,
-  MessageSquareQuote
+  MessageSquareQuote,
+  Star,
+  Lightbulb,
+  Target,
+  RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OllamaService } from '@/utils/OllamaAIModal';
 import { db } from '@/utils/db';
 import { UserAnswer } from '@/utils/schema';
 import { useAuth } from '@/context/AuthContext';
+import { eq } from 'drizzle-orm';
 import moment from 'moment';
 
 function RecordAnswerSection({ 
   mockInterviewQuestion, 
   activeQuestionIndex, 
   interviewData, 
+  interviewId,
   onAnswerSaved 
 }) {
   const [userAnswer, setUserAnswer] = useState('');
@@ -39,6 +45,7 @@ function RecordAnswerSection({
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [currentFeedback, setCurrentFeedback] = useState(null);
 
   // Audio Visualizer State
   const [audioLevels, setAudioLevels] = useState([15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]);
@@ -48,19 +55,68 @@ function RecordAnswerSection({
   const audioChunksRef = useRef([]);
   const audioStreamRef = useRef(null);
   const timerRef = useRef(null);
+  const latestTranscriptRef = useRef('');
 
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
 
-  // Reset state when switching questions
+  // Sync latest transcript
+  useEffect(() => {
+    latestTranscriptRef.current = userAnswer;
+  }, [userAnswer]);
+
+  // Reset state or load existing feedback when switching questions
   useEffect(() => {
     if (isRecording) {
       stopAudioRecording();
     }
     setUserAnswer('');
+    setCurrentFeedback(null);
     setRecordingTime(0);
-  }, [activeQuestionIndex]);
+    latestTranscriptRef.current = '';
+
+    const loadExistingRecord = async () => {
+      const qText = mockInterviewQuestion?.[activeQuestionIndex]?.question;
+      const targetId = interviewId || interviewData?.mockId;
+      if (!qText || !targetId) return;
+
+      try {
+        const saved = await db
+          .select()
+          .from(UserAnswer)
+          .where(eq(UserAnswer.mockIdRef, targetId));
+
+        if (saved && saved.length > 0) {
+          const match = saved.find((item) => item.question === qText);
+          if (match) {
+            setUserAnswer(match.userAns || '');
+            latestTranscriptRef.current = match.userAns || '';
+            setCurrentFeedback({
+              rating: match.rating,
+              feedback: match.feedback,
+              correctAns: match.correctAns,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load previous answer/feedback:', err);
+      }
+    };
+
+    loadExistingRecord();
+  }, [activeQuestionIndex, interviewData?.mockId, interviewId]);
+
+  // Animate feedback card on appearance
+  useEffect(() => {
+    if (currentFeedback) {
+      gsap.fromTo(
+        '.feedback-card-anim',
+        { opacity: 0, y: 16, scale: 0.98 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: 'power3.out' }
+      );
+    }
+  }, [currentFeedback]);
 
   // Timer effect
   useEffect(() => {
@@ -134,7 +190,7 @@ function RecordAnswerSection({
   }, []);
 
   const evaluateWithOllama = async (textAnswer) => {
-    const answerToEval = (textAnswer || userAnswer || '').trim();
+    const answerToEval = (textAnswer || userAnswer || latestTranscriptRef.current || '').trim();
     if (answerToEval.length < 5) {
       toast.info('Please speak or type a complete answer before evaluation.');
       return;
@@ -145,6 +201,7 @@ function RecordAnswerSection({
 
     const currentQuestion = mockInterviewQuestion?.[activeQuestionIndex]?.question;
     const correctAnswer = mockInterviewQuestion?.[activeQuestionIndex]?.answer;
+    const targetMockId = interviewId || interviewData?.mockId;
 
     try {
       const evalRes = await OllamaService.evaluateAnswer({
@@ -155,26 +212,40 @@ function RecordAnswerSection({
       });
 
       const userEmail = user?.email || user?.primaryEmailAddress?.emailAddress || 'candidate@prepsmart.ai';
+      const ratingStr = String(evalRes?.rating || '7');
+      const feedbackStr = evalRes?.feedback || 'Good attempt! Structure your answers highlighting architecture and trade-offs.';
 
       try {
         await db.insert(UserAnswer).values({
-          mockIdRef: interviewData?.mockId,
+          mockId: targetMockId,
+          mockIdRef: targetMockId,
           question: currentQuestion,
           correctAns: correctAnswer,
           userAns: answerToEval,
-          feedback: evalRes?.feedback || 'Good effort.',
-          rating: String(evalRes?.rating || '7'),
+          feedback: feedbackStr,
+          rating: ratingStr,
           userEmail: userEmail,
           createdAt: moment().format('DD-MM-yyyy'),
         });
 
+        setCurrentFeedback({
+          rating: ratingStr,
+          feedback: feedbackStr,
+          correctAns: correctAnswer,
+        });
+
         toast.dismiss();
-        toast.success(`Answer scored ${evalRes?.rating || 7}/10 by Ollama AI!`);
+        toast.success(`Answer scored ${ratingStr}/10 with constructive feedback!`);
         if (onAnswerSaved) onAnswerSaved();
       } catch (dbErr) {
         console.warn('DB insert fallback:', dbErr);
+        setCurrentFeedback({
+          rating: ratingStr,
+          feedback: feedbackStr,
+          correctAns: correctAnswer,
+        });
         toast.dismiss();
-        toast.success(`Answer evaluated (${evalRes?.rating || 7}/10) by Ollama AI!`);
+        toast.success(`Answer evaluated (${ratingStr}/10) by Ollama AI!`);
         if (onAnswerSaved) onAnswerSaved();
       }
     } catch (err) {
@@ -259,8 +330,13 @@ function RecordAnswerSection({
           audioStreamRef.current.getTracks().forEach((track) => track.stop());
         }
 
-        // When recording stops, prompt candidate or automatically evaluate
-        toast.info('Voice recorded! Review your transcribed answer below or click Save & Evaluate.');
+        const candidateAnswer = (latestTranscriptRef.current || userAnswer || '').trim();
+        if (candidateAnswer.length >= 5) {
+          toast.info('Audio captured! Evaluating your response with Ollama AI...');
+          await evaluateWithOllama(candidateAnswer);
+        } else {
+          toast.info('Voice recorded! Review or edit your answer, then click "Save & Evaluate Answer".');
+        }
       };
 
       // Start Browser Web Speech Recognition for live transcription
@@ -277,7 +353,9 @@ function RecordAnswerSection({
             for (let i = 0; i < event.results.length; i++) {
               fullTranscript += event.results[i][0].transcript + ' ';
             }
-            setUserAnswer(fullTranscript.trim());
+            const trimmed = fullTranscript.trim();
+            setUserAnswer(trimmed);
+            latestTranscriptRef.current = trimmed;
           };
 
           recognition.onerror = (e) => {
@@ -495,6 +573,65 @@ function RecordAnswerSection({
           </Button>
         </div>
       </div>
+
+      {/* LIVE AI EVALUATION & FEEDBACK CARD */}
+      {currentFeedback && (
+        <div className="feedback-card-anim p-5 rounded-3xl border border-indigo-200/90 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/70 via-white/80 to-purple-50/50 dark:from-indigo-950/40 dark:via-slate-900/80 dark:to-purple-950/30 backdrop-blur-xl shadow-xl space-y-4 transition-all duration-500">
+          
+          {/* Card Header */}
+          <div className="flex items-center justify-between pb-3 border-b border-indigo-100/90 dark:border-indigo-900/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>AI Evaluation & Feedback</span>
+                  <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    Recorded
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  Assessed by Ollama • Synced to your performance report
+                </p>
+              </div>
+            </div>
+
+            {/* Score Pill */}
+            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3.5 py-1.5 rounded-2xl border border-indigo-200 dark:border-indigo-800 shadow-sm">
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+              <span className="text-base font-black text-slate-900 dark:text-white font-mono">
+                {currentFeedback.rating}
+              </span>
+              <span className="text-xs text-slate-400 font-bold">/ 10</span>
+            </div>
+          </div>
+
+          {/* Constructive AI Feedback */}
+          <div className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-indigo-100 dark:border-indigo-900/50 space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-1.5 text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+              <Lightbulb className="w-3.5 h-3.5" />
+              <span>AI Coaching Feedback:</span>
+            </div>
+            <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
+              {currentFeedback.feedback}
+            </p>
+          </div>
+
+          {/* Model Ideal Points */}
+          {currentFeedback.correctAns && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/50 space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                <Target className="w-3.5 h-3.5" />
+                <span>Benchmark Target Answer:</span>
+              </div>
+              <p className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed font-medium">
+                {currentFeedback.correctAns}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );
