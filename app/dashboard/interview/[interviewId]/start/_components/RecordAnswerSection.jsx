@@ -24,7 +24,9 @@ import {
   Lightbulb,
   Target,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  Settings2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OllamaService } from '@/utils/OllamaAIModal';
@@ -54,6 +56,8 @@ function RecordAnswerSection({
   const [voiceDetected, setVoiceDetected] = useState(false);
   const [micSilenceWarning, setMicSilenceWarning] = useState(false);
   const [micPermissionError, setMicPermissionError] = useState(false);
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -62,10 +66,46 @@ function RecordAnswerSection({
   const latestTranscriptRef = useRef('');
   const maxVolumeSeenRef = useRef(0);
   const recordingStartTimeRef = useRef(0);
+  const gainNodeRef = useRef(null);
+  const scriptProcessorRef = useRef(null);
 
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
+
+  // Enumerate all available audio input microphones
+  const refreshAudioDevices = async () => {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const mics = devices.filter((d) => d.kind === 'audioinput');
+        setAudioDevices(mics);
+        if (mics.length > 0 && !selectedDeviceId) {
+          const valid = mics.find((m) => m.deviceId && m.deviceId !== 'default');
+          setSelectedDeviceId(valid?.deviceId || mics[0]?.deviceId || 'default');
+        }
+      } catch (e) {
+        console.warn('Could not enumerate mics:', e);
+      }
+    }
+  };
+
+  useEffect(() => {
+    refreshAudioDevices();
+  }, [selectedDeviceId]);
+
+  // Handle switching active microphone on the fly
+  const handleDeviceChange = async (e) => {
+    const newDeviceId = e.target.value;
+    setSelectedDeviceId(newDeviceId);
+    if (isRecording) {
+      toast.info('Switching microphone device...');
+      stopAudioRecording();
+      setTimeout(() => {
+        startAudioRecording(newDeviceId);
+      }, 350);
+    }
+  };
 
   // Sync latest transcript
   useEffect(() => {
@@ -161,6 +201,17 @@ function RecordAnswerSection({
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
+    }
+    if (scriptProcessorRef.current) {
+      try {
+        scriptProcessorRef.current.onaudioprocess = null;
+        scriptProcessorRef.current.disconnect();
+      } catch (e) {}
+      scriptProcessorRef.current = null;
+    }
+    if (gainNodeRef.current) {
+      try { gainNodeRef.current.disconnect(); } catch (e) {}
+      gainNodeRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       try {
@@ -387,7 +438,7 @@ function RecordAnswerSection({
   };
 
   // Start Audio Recording with Physical Hardware Voice Catching Telemetry
-  const startAudioRecording = async () => {
+  const startAudioRecording = async (overrideDeviceId) => {
     if (typeof window === 'undefined') return;
 
     try {
@@ -401,16 +452,30 @@ function RecordAnswerSection({
       let stream = null;
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
+          const deviceToUse = overrideDeviceId || selectedDeviceId;
+          const micConstraints = {
+            echoCancellation: true,
+            autoGainControl: true,
+            noiseSuppression: false,
+          };
+          if (deviceToUse && deviceToUse !== 'default') {
+            micConstraints.deviceId = { exact: deviceToUse };
+          }
+
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: true,
-            },
+            audio: micConstraints,
           });
           audioStreamRef.current = stream;
 
-          // Initialize Web Audio PCM RMS Volume Analyzer
+          // Re-enumerate to get human-readable device labels once permission is granted
+          if (navigator.mediaDevices.enumerateDevices) {
+            navigator.mediaDevices.enumerateDevices().then((devices) => {
+              const mics = devices.filter((d) => d.kind === 'audioinput' && d.deviceId);
+              if (mics.length > 0) setAudioDevices(mics);
+            }).catch(() => {});
+          }
+
+          // Initialize Web Audio with active destination pull via ScriptProcessorNode
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
           if (AudioCtx) {
             const audioCtx = new AudioCtx();
@@ -419,48 +484,61 @@ function RecordAnswerSection({
               await audioCtx.resume();
             }
 
-            const analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 64;
-            analyser.smoothingTimeConstant = 0.6;
-            analyserRef.current = analyser;
-
             const source = audioCtx.createMediaStreamSource(stream);
+
+            // 1. Analyser node for frequency spectrum visualizer
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            analyser.smoothingTimeConstant = 0.5;
+            analyserRef.current = analyser;
             source.connect(analyser);
 
-            const freqData = new Uint8Array(analyser.frequencyBinCount);
-            const timeData = new Uint8Array(analyser.fftSize);
+            // 2. ScriptProcessorNode: guaranteed continuous hardware PCM float32 calculation
+            const processor = audioCtx.createScriptProcessor(2048, 1, 1);
+            scriptProcessorRef.current = processor;
 
-            const updateMeter = () => {
-              if (!analyserRef.current || !isRecordingRef.current) return;
-              analyserRef.current.getByteFrequencyData(freqData);
-              analyserRef.current.getByteTimeDomainData(timeData);
-
-              // Calculate true physical microphone RMS volume (0 - 100)
+            processor.onaudioprocess = (e) => {
+              if (!isRecordingRef.current) return;
+              const input = e.inputBuffer.getChannelData(0);
               let sumSquares = 0;
-              for (let i = 0; i < timeData.length; i++) {
-                const norm = (timeData[i] - 128) / 128;
-                sumSquares += norm * norm;
+              for (let i = 0; i < input.length; i++) {
+                sumSquares += input[i] * input[i];
               }
-              const rms = Math.sqrt(sumSquares / timeData.length);
-              const volume = Math.min(100, Math.round(rms * 280));
+              const rms = Math.sqrt(sumSquares / input.length);
+              const volume = Math.min(100, Math.round(rms * 500));
               setVoiceVolume(volume);
 
               if (volume > maxVolumeSeenRef.current) {
                 maxVolumeSeenRef.current = volume;
               }
 
-              // Active voice detection threshold (>= 6%)
-              if (volume >= 6) {
+              // Active voice detection threshold (>= 2%)
+              if (volume >= 2) {
                 setVoiceDetected(true);
                 setMicSilenceWarning(false);
               } else {
-                // If 3.5 seconds have elapsed and microphone hasn't picked up vocal audio
-                if (Date.now() - recordingStartTimeRef.current > 3500 && maxVolumeSeenRef.current < 6) {
+                // If 6 seconds have elapsed and microphone hasn't picked up vocal audio
+                if (Date.now() - recordingStartTimeRef.current > 6000 && maxVolumeSeenRef.current < 2) {
                   setMicSilenceWarning(true);
                 }
               }
+            };
 
-              // Dynamic audio spectrum waveform bars
+            source.connect(processor);
+
+            // Route processor output through gain node (muted) to destination to satisfy Chromium audio graph
+            const gain = audioCtx.createGain();
+            gain.gain.value = 0;
+            processor.connect(gain);
+            gain.connect(audioCtx.destination);
+            gainNodeRef.current = gain;
+
+            // Visualizer animation loop using analyser
+            const freqData = new Uint8Array(analyser.frequencyBinCount);
+            const updateMeter = () => {
+              if (!analyserRef.current || !isRecordingRef.current) return;
+              analyserRef.current.getByteFrequencyData(freqData);
+
               const bars = [];
               const step = Math.max(1, Math.floor(freqData.length / 16));
               for (let i = 0; i < 16; i++) {
@@ -586,6 +664,7 @@ function RecordAnswerSection({
 
         {/* Live Mirrored Webcam Feed */}
         <Webcam
+          audio={false}
           mirrored={true}
           className="w-full h-full object-cover rounded-3xl"
         />
@@ -614,13 +693,13 @@ function RecordAnswerSection({
                 <div className="flex items-center gap-2">
                   <span
                     className={`w-2.5 h-2.5 rounded-full transition-all duration-200 ${
-                      voiceVolume >= 6
+                      voiceVolume >= 2
                         ? 'bg-emerald-400 shadow-[0_0_12px_#34d399] scale-125'
                         : 'bg-amber-400 animate-pulse'
                     }`}
                   />
                   <span className="text-xs font-bold text-white tracking-wide">
-                    {voiceVolume >= 6 ? `Voice Caught: Active Speech (${voiceVolume}%)` : 'Listening... Speak Your Answer'}
+                    {voiceVolume >= 2 ? `Voice Caught: Active Speech (${voiceVolume}%)` : 'Listening... Speak Your Answer'}
                   </span>
                 </div>
 
@@ -636,7 +715,7 @@ function RecordAnswerSection({
                     key={idx}
                     style={{ height: `${lvl}%` }}
                     className={`w-2 rounded-full transition-all duration-75 ease-out ${
-                      voiceVolume >= 6
+                      voiceVolume >= 4
                         ? 'bg-gradient-to-t from-blue-600 via-teal-400 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)]'
                         : 'bg-gradient-to-t from-slate-600 to-slate-500 opacity-50'
                     }`}
@@ -661,14 +740,68 @@ function RecordAnswerSection({
         </div>
       </div>
 
+      {/* HARDWARE MICROPHONE INPUT PICKER */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-4 py-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 backdrop-blur-md text-xs">
+        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-bold">
+          <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+            <Mic className="w-4 h-4" />
+          </div>
+          <span>Microphone Input Device:</span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-1 sm:justify-end">
+          <select
+            value={selectedDeviceId}
+            onChange={handleDeviceChange}
+            className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40 w-full sm:w-auto max-w-xs truncate cursor-pointer shadow-sm"
+          >
+            <option value="default">Default System Microphone</option>
+            {audioDevices
+              .filter((d) => d.deviceId && d.deviceId !== 'default')
+              .map((device, idx) => (
+                <option key={device.deviceId || idx} value={device.deviceId}>
+                  {device.label || `Microphone ${idx + 1}`}
+                </option>
+              ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={refreshAudioDevices}
+            title="Refresh available microphones"
+            className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
       {/* Real-time Voice Catching Telemetry Alerts */}
       {isRecording && micSilenceWarning && (
-        <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-bold shadow-lg animate-pulse">
-          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="font-extrabold text-amber-600 dark:text-amber-300">Microphone is not catching your voice.</p>
-            <p className="font-normal opacity-90 mt-0.5">Please check that your physical microphone is unmuted, properly selected in your browser, and speak directly into the mic.</p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs shadow-lg animate-pulse">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-extrabold text-amber-600 dark:text-amber-300">Microphone is not catching your voice.</p>
+              <p className="font-normal opacity-90 mt-0.5">Please check that your physical microphone is unmuted, adjust hardware boost, or switch to your headset/mic below:</p>
+            </div>
           </div>
+          {audioDevices.length > 1 && (
+            <select
+              value={selectedDeviceId}
+              onChange={handleDeviceChange}
+              className="bg-amber-100 dark:bg-slate-900 border border-amber-300 dark:border-amber-700/60 text-slate-800 dark:text-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold focus:outline-none"
+            >
+              <option value="default">Default System Microphone</option>
+              {audioDevices
+                .filter((d) => d.deviceId && d.deviceId !== 'default')
+                .map((device, idx) => (
+                  <option key={device.deviceId || idx} value={device.deviceId}>
+                    {device.label || `Microphone ${idx + 1}`}
+                  </option>
+                ))}
+            </select>
+          )}
         </div>
       )}
 
@@ -689,15 +822,15 @@ function RecordAnswerSection({
             <MessageSquareQuote className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <span>Your Transcribed Response</span>
             {isRecording && (
-              voiceVolume >= 6 ? (
+              (voiceVolume >= 2 || voiceDetected) ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-500/30 animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Voice Caught ({voiceVolume}%)
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-300 animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
-                  Live Recording • Awaiting Speech
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Listening • Awaiting Speech
                 </span>
               )
             )}
