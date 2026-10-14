@@ -257,136 +257,227 @@ function RecordAnswerSection({
     }
   };
 
+  const isRecordingRef = useRef(false);
+  const shouldRestartRecognitionRef = useRef(true);
+  const finalTranscriptRef = useRef('');
+  const activeInterimRef = useRef('');
+
+  // Start Audio Recording & Continuous Speech Recognition
   const startAudioRecording = async () => {
+    // 1. Pre-check browser mediaDevices support
+    if (typeof window === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast.error('Microphone recording is not supported in this browser.');
+      return;
+    }
+
     try {
       audioChunksRef.current = [];
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 2. Request clean audio capture stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       audioStreamRef.current = stream;
 
-      // Setup Real-time Web Audio Analyser for Voice Waveform
+      // 3. Isolated Web Audio Visualizer Setup
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioCtx();
-        audioContextRef.current = audioCtx;
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
 
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 64;
-        analyser.smoothingTimeConstant = 0.75;
-        analyserRef.current = analyser;
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          analyser.smoothingTimeConstant = 0.75;
+          analyserRef.current = analyser;
 
-        const source = audioCtx.createMediaStreamSource(stream);
-        source.connect(analyser);
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
 
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-        const updateWaveform = () => {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
+          const updateWaveform = () => {
+            if (!analyserRef.current) return;
+            analyserRef.current.getByteFrequencyData(dataArray);
 
-          const bars = [];
-          let sum = 0;
-          const barCount = 16;
-          const step = Math.max(1, Math.floor(dataArray.length / barCount));
+            const bars = [];
+            let sum = 0;
+            const barCount = 16;
+            const step = Math.max(1, Math.floor(dataArray.length / barCount));
 
-          for (let i = 0; i < barCount; i++) {
-            const val = dataArray[i * step] || 0;
-            sum += val;
-            const normalizedHeight = Math.max(15, Math.min(100, (val / 255) * 100));
-            bars.push(normalizedHeight);
-          }
+            for (let i = 0; i < barCount; i++) {
+              const val = dataArray[i * step] || 0;
+              sum += val;
+              const normalizedHeight = Math.max(15, Math.min(100, (val / 255) * 100));
+              bars.push(normalizedHeight);
+            }
 
-          const avgVolume = Math.round(sum / barCount);
-          setVoiceVolume(avgVolume);
-          setAudioLevels(bars);
+            const avgVolume = Math.round(sum / barCount);
+            setVoiceVolume(avgVolume);
+            setAudioLevels(bars);
 
-          animFrameRef.current = requestAnimationFrame(updateWaveform);
-        };
+            animFrameRef.current = requestAnimationFrame(updateWaveform);
+          };
 
-        updateWaveform();
+          updateWaveform();
+        }
       } catch (audioErr) {
         console.warn('Audio visualization unavailable:', audioErr);
       }
 
-      // Check supported MIME types for recording
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-        ? 'audio/mp4'
-        : 'audio/ogg';
+      // 4. MediaRecorder initialization
+      try {
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : '';
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
+        const mediaRecorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
+        mediaRecorderRef.current = mediaRecorder;
 
-      mediaRecorder.onstop = async () => {
-        cleanupAudioVisualizer();
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
 
-        if (audioStreamRef.current) {
-          audioStreamRef.current.getTracks().forEach((track) => track.stop());
-        }
+        mediaRecorder.onstop = () => {
+          cleanupAudioVisualizer();
+          if (audioStreamRef.current) {
+            audioStreamRef.current.getTracks().forEach((track) => track.stop());
+            audioStreamRef.current = null;
+          }
+        };
 
-        const candidateAnswer = (latestTranscriptRef.current || userAnswer || '').trim();
-        if (candidateAnswer.length >= 5) {
-          toast.info('Audio captured! Evaluating your response with Ollama AI...');
-          await evaluateWithOllama(candidateAnswer);
-        } else {
-          toast.info('Voice recorded! Review or edit your answer, then click "Save & Evaluate Answer".');
-        }
-      };
+        mediaRecorder.start(250);
+      } catch (recErr) {
+        console.warn('MediaRecorder setup notice:', recErr);
+      }
 
-      // Start Browser Web Speech Recognition for live transcription
-      if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      // 5. Web Speech Recognition Engine with Continuous Auto-Restart
+      finalTranscriptRef.current = userAnswer ? userAnswer.trim() + ' ' : '';
+      activeInterimRef.current = '';
+
+      const SpeechRecognition = typeof window !== 'undefined'
+        ? window.SpeechRecognition || window.webkitSpeechRecognition
+        : null;
+
+      if (SpeechRecognition) {
         try {
-          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
           const recognition = new SpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
           recognition.lang = 'en-US';
+          recognition.maxAlternatives = 1;
 
           recognition.onresult = (event) => {
-            let fullTranscript = '';
-            for (let i = 0; i < event.results.length; i++) {
-              fullTranscript += event.results[i][0].transcript + ' ';
+            let interim = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              const transcriptPart = event.results[i][0].transcript;
+              if (event.results[i].isFinal) {
+                finalTranscriptRef.current += transcriptPart + ' ';
+              } else {
+                interim += transcriptPart;
+              }
             }
-            const trimmed = fullTranscript.trim();
-            setUserAnswer(trimmed);
-            latestTranscriptRef.current = trimmed;
+            activeInterimRef.current = interim;
+            const currentCombined = (finalTranscriptRef.current + interim).trim();
+            setUserAnswer(currentCombined);
+            latestTranscriptRef.current = currentCombined;
           };
 
           recognition.onerror = (e) => {
-            console.warn('Live SpeechRecognition notice:', e.error);
+            console.warn('Live SpeechRecognition error:', e.error);
+            if (e.error === 'not-allowed') {
+              toast.error('Microphone permission was denied. Please allow microphone access in your browser address bar.');
+              shouldRestartRecognitionRef.current = false;
+            } else if (e.error === 'network') {
+              toast.info('Speech-to-text service network hiccup. You can continue speaking or type directly.');
+            }
           };
 
+          recognition.onend = () => {
+            // Auto-restart speech engine across conversational pauses while recording is active
+            if (isRecordingRef.current && shouldRestartRecognitionRef.current) {
+              try {
+                recognition.start();
+              } catch (restartErr) {
+                // Ignore if already active
+              }
+            }
+          };
+
+          shouldRestartRecognitionRef.current = true;
           recognition.start();
           recognitionRef.current = recognition;
         } catch (speechErr) {
-          console.warn('SpeechRecognition initiation notice:', speechErr);
+          console.warn('SpeechRecognition initialization notice:', speechErr);
         }
+      } else {
+        toast.info('Speech-to-text is not natively supported in this browser. You can type directly in the box.');
       }
 
-      mediaRecorder.start();
+      // 6. Update Active State
+      isRecordingRef.current = true;
       setIsRecording(true);
-      toast.info('Microphone recording started. Speak your answer clearly.');
+      toast.info('Recording started! Speak your answer clearly into your microphone.');
     } catch (err) {
       console.error('Microphone access error:', err);
+      isRecordingRef.current = false;
+      setIsRecording(false);
       toast.error('Could not access microphone: ' + (err.message || 'Permission denied'));
     }
   };
 
+  // Fail-safe Stop Recording
   const stopAudioRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
+    isRecordingRef.current = false;
+    shouldRestartRecognitionRef.current = false;
+    setIsRecording(false);
+
+    // Stop Speech Recognition
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch (e) {}
+      recognitionRef.current = null;
+    }
+
+    // Stop Media Recorder
+    if (mediaRecorderRef.current) {
+      try {
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
+      } catch (e) {}
+      mediaRecorderRef.current = null;
+    }
+
+    cleanupAudioVisualizer();
+
+    // Release all hardware microphone tracks
+    if (audioStreamRef.current) {
+      try {
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (e) {}
+      audioStreamRef.current = null;
+    }
+
+    // Auto-evaluate if transcript captured
+    const candidateAnswer = (latestTranscriptRef.current || userAnswer || '').trim();
+    if (candidateAnswer.length >= 5) {
+      toast.info('Voice captured! Evaluating your response with Ollama AI...');
+      evaluateWithOllama(candidateAnswer);
+    } else {
+      toast.info('Recording stopped. Review or type your answer, then click "Save & Evaluate Answer".');
     }
   };
 
