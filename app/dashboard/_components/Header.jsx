@@ -7,6 +7,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from 'next-themes';
+import moment from 'moment';
 import { 
   LogOut, 
   Sparkles, 
@@ -21,22 +23,113 @@ import {
   ShieldCheck,
   CheckCircle2,
   Crown,
-  Settings
+  Settings,
+  Sun,
+  Moon,
+  Sliders,
+  Cpu,
+  Flame,
+  Award,
+  Zap
 } from 'lucide-react';
 import AccountSettingsDialog from '@/components/AccountSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { OllamaService } from '@/utils/OllamaAIModal';
+import { db } from '@/utils/db';
+import { MockInterview, UserAnswer } from '@/utils/schema';
+import { eq } from 'drizzle-orm';
 
 function Header() {
   const path = usePathname();
   const headerRef = useRef(null);
   const { user, signOut, isDemoUser } = useAuth();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [ollamaStatus, setOllamaStatus] = useState({ online: false, model: 'llama3.3' });
+  const [candidateMiniStats, setCandidateMiniStats] = useState({ score: '—', streak: 0 });
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    setMounted(true);
+    OllamaService.checkStatus().then((status) => {
+      setOllamaStatus({
+        online: Boolean(status.online),
+        model: status.activeModel || status.model || 'llama3.3',
+      });
+    });
+  }, []);
+
+  // Fetch real candidate mini stats for user menu
+  useEffect(() => {
+    const userEmail = user?.email || user?.primaryEmailAddress?.emailAddress;
+    if (!userEmail) return;
+
+    const loadMiniStats = async () => {
+      try {
+        const [interviews, answers] = await Promise.all([
+          db.select().from(MockInterview).where(eq(MockInterview.createdBy, userEmail)),
+          db.select().from(UserAnswer).where(eq(UserAnswer.userEmail, userEmail))
+        ]);
+
+        let calculatedAvg = '—';
+        if (answers && answers.length > 0) {
+          const valid = answers.map((a) => parseFloat(a.rating)).filter((r) => !isNaN(r) && r > 0);
+          if (valid.length > 0) {
+            calculatedAvg = (valid.reduce((acc, curr) => acc + curr, 0) / valid.length).toFixed(1);
+          }
+        }
+
+        // Calculate consecutive streak
+        const activeDatesSet = new Set();
+        const normalizeToKey = (dateStr) => {
+          if (!dateStr) return null;
+          const m = moment(dateStr, ['DD-MM-YYYY', 'YYYY-MM-DD', 'DD/MM/YYYY', moment.ISO_8601], true);
+          return m.isValid() ? m.format('YYYY-MM-DD') : null;
+        };
+        (answers || []).forEach((a) => {
+          const k = normalizeToKey(a.createdAt);
+          if (k) activeDatesSet.add(k);
+        });
+        (interviews || []).forEach((i) => {
+          const k = normalizeToKey(i.createdAt);
+          if (k) activeDatesSet.add(k);
+        });
+
+        const todayKey = moment().format('YYYY-MM-DD');
+        const yesterdayKey = moment().subtract(1, 'day').format('YYYY-MM-DD');
+        let streak = 0;
+        let checkDate = null;
+        if (activeDatesSet.has(todayKey)) checkDate = moment();
+        else if (activeDatesSet.has(yesterdayKey)) checkDate = moment().subtract(1, 'day');
+
+        if (checkDate) {
+          while (activeDatesSet.has(checkDate.format('YYYY-MM-DD'))) {
+            streak++;
+            checkDate.subtract(1, 'day');
+          }
+        }
+
+        setCandidateMiniStats({ score: calculatedAvg, streak });
+      } catch (e) {
+        console.warn('Header mini stats notice:', e);
+      }
+    };
+
+    loadMiniStats();
+    window.addEventListener('prepsmart_refresh_interviews', loadMiniStats);
+    return () => window.removeEventListener('prepsmart_refresh_interviews', loadMiniStats);
+  }, [user]);
+
+  const toggleTheme = () => {
+    if (!mounted) return;
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
   // Animate Header entry on mount
   useGSAP(() => {
@@ -282,8 +375,8 @@ function Header() {
                         {item.badge}
                       </Badge>
                     )}
-                    {/* Animated bottom indicator dot */}
-                    <span className={`nav-indicator absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-violet-600 transition-opacity ${isActive ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+                    {/* Animated bottom indicator bar */}
+                    <span className={`nav-indicator absolute -bottom-0.5 left-4 right-4 h-0.5 rounded-full bg-gradient-to-r from-blue-400 via-indigo-300 to-white/90 shadow-sm transition-all duration-300 ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`} />
                   </Link>
                 </li>
               );
@@ -294,18 +387,45 @@ function Header() {
         {/* =================================================================== */}
         {/* RIGHT ACTION BUTTONS & USER PROFILE                                 */}
         {/* =================================================================== */}
-        <div className="nav-action flex items-center gap-2.5" ref={dropdownRef}>
+        <div className="nav-action flex items-center gap-2 sm:gap-2.5" ref={dropdownRef}>
+          {/* Live Ollama AI Engine Telemetry Pill */}
+          <div 
+            title={ollamaStatus.online ? "Local Ollama daemon running on port 11434 (llama3.3)" : "Ollama local AI ready (Fallback active)"}
+            className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-800/70 text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm"
+          >
+            <span className={`w-2 h-2 rounded-full ${ollamaStatus.online ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'}`} />
+            <span className="font-mono">Ollama {(ollamaStatus.model || 'llama3.3').toUpperCase()}</span>
+            <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md ${ollamaStatus.online ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+              {ollamaStatus.online ? 'Online' : 'Ready'}
+            </span>
+          </div>
+
+          {/* Dark / Light Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Toggle dark/light theme"
+            title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} mode`}
+            className="w-8 h-8 rounded-full flex items-center justify-center border border-slate-200/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors shadow-sm cursor-pointer group shrink-0"
+          >
+            {mounted && resolvedTheme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400 group-hover:rotate-45 transition-transform duration-300" />
+            ) : (
+              <Moon className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:-rotate-12 transition-transform duration-300" />
+            )}
+          </button>
+
           {user ? (
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* Quick "+ New Mock" shortcut */}
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              {/* Quick "+ New Mock" shortcut with glowing gradient */}
               <button 
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('prepsmart_open_new_mock'))}
                 onMouseMove={handleMagneticMove}
                 onMouseLeave={handleMagneticLeave}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800 shadow-sm transition-colors cursor-pointer"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-95 cursor-pointer group"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform duration-300" />
                 <span>New Mock</span>
               </button>
 
@@ -352,25 +472,49 @@ function Header() {
                       </p>
                     </div>
 
+                    {/* Candidate Performance Summary Strip */}
+                    <div className="grid grid-cols-2 gap-1.5 p-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800/80 mb-2 text-[11px]">
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                        <span className="text-amber-500 font-bold">★</span>
+                        <span className="text-slate-500 dark:text-slate-400">Score:</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{candidateMiniStats.score}/10</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                        <span className="text-emerald-500 font-bold">⚡</span>
+                        <span className="text-slate-500 dark:text-slate-400">Streak:</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{candidateMiniStats.streak}d</span>
+                      </div>
+                    </div>
+
                     <div className="py-1 space-y-0.5">
-                      <button
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          setSettingsOpen(true);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition text-left"
-                      >
-                        <Settings className="w-4 h-4 text-blue-600" />
-                        <span>Account & Security Settings</span>
-                      </button>
                       <Link
                         href="/dashboard"
                         onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition"
                       >
-                        <LayoutDashboard className="w-4 h-4 text-blue-600" />
+                        <LayoutDashboard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         <span>Candidate Dashboard</span>
                       </Link>
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          window.dispatchEvent(new CustomEvent('prepsmart_open_onboarding'));
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition text-left cursor-pointer"
+                      >
+                        <Sliders className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <span>Calibrate Persona</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          setSettingsOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition text-left cursor-pointer"
+                      >
+                        <Settings className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                        <span>Account & Security Settings</span>
+                      </button>
                       <Link
                         href="/dashboard/upgrade"
                         onClick={() => setDropdownOpen(false)}
@@ -387,7 +531,7 @@ function Header() {
                           setDropdownOpen(false);
                           signOut();
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition cursor-pointer"
                       >
                         <LogOut className="w-4 h-4" />
                         <span>Sign Out</span>
@@ -469,34 +613,117 @@ function Header() {
             })}
           </ul>
 
-          <div className="pt-3">
+          <div className="pt-3 space-y-3">
+            {/* Mobile AI Telemetry & Theme Switcher Bar */}
+            <div className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                    ollamaStatus.connected ? 'bg-emerald-400' : 'bg-amber-400'
+                  }`} />
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                    ollamaStatus.connected ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`} />
+                </span>
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Ollama AI: {ollamaStatus.model ? ollamaStatus.model.toUpperCase() : 'LLAMA 3.3'}
+                </span>
+              </div>
+
+              {/* Theme Toggle Button */}
+              {mounted && (
+                <button
+                  type="button"
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 shadow-sm"
+                  aria-label="Toggle color theme"
+                >
+                  {theme === 'dark' ? (
+                    <>
+                      <Sun className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Light</span>
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Dark</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
             {user ? (
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 truncate">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                    {userInitial}
+              <>
+                {/* Mobile Candidate Mini-Metrics */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-amber-500 text-sm font-bold">★</span>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-medium">Avg Score</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-100">{candidateMiniStats.score} / 10</p>
+                    </div>
                   </div>
-                  <div className="truncate">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {user.fullName || user.email}
-                    </p>
-                    <p className="text-[10px] text-slate-500 truncate">
-                      {user.email}
-                    </p>
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-emerald-500 text-sm font-bold">⚡</span>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-medium">Daily Streak</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-100">{candidateMiniStats.streak} Days</p>
+                    </div>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    signOut();
-                  }}
-                  className="text-xs text-red-600 hover:bg-red-50 hover:text-red-700 font-bold"
-                >
-                  <LogOut className="w-4 h-4" />
-                </Button>
-              </div>
+
+                {/* Mobile Quick Action Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      window.dispatchEvent(new CustomEvent('prepsmart_open_new_mock'));
+                    }}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs rounded-2xl shadow-md cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Mock</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      window.dispatchEvent(new CustomEvent('prepsmart_open_onboarding'));
+                    }}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold text-xs rounded-2xl border border-purple-200/60 dark:border-purple-800/50 cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Persona</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5 truncate">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                      {userInitial}
+                    </div>
+                    <div className="truncate">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {user.fullName || user.email}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {user.email}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      signOut();
+                    }}
+                    className="text-xs text-red-600 hover:bg-red-50 hover:text-red-700 font-bold"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Link href="/sign-in" onClick={() => setMobileMenuOpen(false)}>

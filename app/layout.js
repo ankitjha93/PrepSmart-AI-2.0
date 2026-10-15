@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import MouseEffect from "@/components/MouseEffect";
 import ScrollEffects from "@/components/ScrollEffects";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Outfit({ subsets: ["latin"] });
 
@@ -22,14 +23,16 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>
-          <Toaster />
-          <MouseEffect />
-          <ScrollEffects />
-          {children}
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            <Toaster />
+            <MouseEffect />
+            <ScrollEffects />
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
