@@ -66,12 +66,12 @@ const TARGET_ROLES = [
   { 
     id: 'ai', 
     label: 'AI / ML Engineer', 
-    desc: 'PyTorch, Gemini, RAG Pipelines & Vector Databases', 
+    desc: 'PyTorch, Ollama LLMs, RAG Pipelines & Vector Databases', 
     icon: Cpu, 
-    defaultTech: 'Python, PyTorch, Gemini API, Vector DBs',
+    defaultTech: 'Python, PyTorch, Ollama LLMs, Vector DBs',
     gradient: 'from-purple-500 to-pink-600',
     borderActive: 'border-purple-500 shadow-purple-500/20 ring-purple-500/30',
-    tags: ['PyTorch', 'Gemini', 'RAG', 'Vector DB']
+    tags: ['PyTorch', 'Ollama', 'RAG', 'Vector DB']
   },
   { 
     id: 'devops', 

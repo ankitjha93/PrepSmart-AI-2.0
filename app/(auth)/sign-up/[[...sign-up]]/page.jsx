@@ -185,7 +185,7 @@ export default function SignUpPage() {
           
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-semibold backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            Supabase Auth & Multi-Model Gemini 3.5 AI
+            Supabase Auth & Ollama Open-Source AI Engine (Llama 3.3)
           </div>
 
           <h1 className="text-4xl font-black tracking-tight text-white leading-tight">

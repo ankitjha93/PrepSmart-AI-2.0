@@ -156,7 +156,7 @@ function Interview({ params }) {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
           </div>
-          <span className="font-bold text-slate-700 dark:text-slate-300">Gemini 3.5 Engine</span>
+          <span className="font-bold text-slate-700 dark:text-slate-300">Ollama AI Engine (Llama 3.3)</span>
           <span className="text-slate-400">•</span>
           <span className="font-bold text-blue-600 dark:text-blue-400">{questionCount} FAANG Questions</span>
         </div>
@@ -420,7 +420,7 @@ function Interview({ params }) {
                 <span className="text-xs font-bold text-slate-900 dark:text-white">AI Engine</span>
               </div>
               <span className="text-[10px] font-semibold text-purple-500">
-                Gemini 3.5 Armed
+                Ollama AI Armed
               </span>
             </div>
           </div>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req) {
   const baseUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
-  const defaultModel = process.env.OLLAMA_MODEL || 'llama3.2';
+  const defaultModel = process.env.OLLAMA_MODEL || 'llama3.3';
 
   try {
     const body = await req.json();

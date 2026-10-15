@@ -176,7 +176,7 @@ export default function SignInPage() {
           
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-semibold backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            Supabase Auth & Multi-Model Gemini 3.5 AI
+            Supabase Auth & Ollama Open-Source AI Engine (Llama 3.3)
           </div>
 
           <h1 className="text-4xl font-black tracking-tight text-white leading-tight">
@@ -184,7 +184,7 @@ export default function SignInPage() {
           </h1>
 
           <p className="text-slate-300 text-sm md:text-base leading-relaxed">
-            Practice job-specific technical and behavioral questions, capture audio answers with live spectrum visualization, and receive instantaneous feedback from Google Gemini.
+            Practice job-specific technical and behavioral questions, capture audio answers with live spectrum visualization, and receive instantaneous feedback from Ollama AI.
           </p>
 
           {/* Interactive Floating Live Session Card */}

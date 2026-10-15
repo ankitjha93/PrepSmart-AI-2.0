@@ -97,7 +97,7 @@ const DEMO_ROLES = [
     id: 'ai',
     title: 'AI / ML Engineer',
     category: 'AI / ML',
-    stack: 'PyTorch, Gemini 3.5, RAG Pipelines',
+    stack: 'PyTorch, Ollama LLM, RAG Pipelines',
     question: 'What strategies reduce hallucination and improve retrieval recall in production Retrieval-Augmented Generation (RAG)?',
     userAns: 'By deploying hybrid vector + keyword search (BM25), cross-encoder re-ranking models, contextual document chunking with metadata headers, and strict semantic validation guardrails.',
     rating: '9.6',
@@ -130,7 +130,7 @@ const PLATFORM_STEPS = [
   {
     step: "01",
     title: "Define Your Target Role",
-    desc: "Specify your exact job title, tech stack (e.g., React, Go, PyTorch), and seniority level. Gemini 3.5 creates authentic technical & behavioral questions in seconds.",
+    desc: "Specify your exact job title, tech stack (e.g., React, Go, PyTorch), and seniority level. Ollama AI creates authentic technical & behavioral questions in seconds.",
     badge: "Tailored AI Generator",
     highlight: "Custom Job Description & Stack Support"
   },
@@ -162,7 +162,7 @@ const FAQS = [
   },
   {
     q: "What types of interview questions are generated?",
-    a: "Our Google Gemini multi-model engine generates authentic technical, algorithmic, system design, and behavioral questions tailored directly to your target company, role, tech stack, and years of experience."
+    a: "Our Ollama open-source AI engine (Llama 3.3) generates authentic technical, algorithmic, system design, and behavioral questions tailored directly to your target company, role, tech stack, and years of experience."
   },
   {
     q: "Where is my interview history stored?",
@@ -507,7 +507,7 @@ export default function Home() {
             PrepSmart AI 2.0 Live
           </Badge>
           <Badge variant="outline" className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-sm border-slate-200/80 dark:border-slate-700">
-            <Sparkles className="w-3 h-3 mr-1.5 text-blue-600" /> Powered by Gemini 3.5 & Supabase
+            <Sparkles className="w-3 h-3 mr-1.5 text-blue-600" /> Powered by Ollama AI & Supabase
           </Badge>
         </div>
 
@@ -580,14 +580,14 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Floating Badge: Gemini 3.5 AI Score */}
+          {/* Right Floating Badge: Ollama AI Score */}
           <div className="floating-pill-widget floating-pill-widget-right absolute -top-6 -right-12 p-3 px-4 rounded-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xl backdrop-blur-xl flex items-center gap-3 z-20 text-left">
             <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shadow-inner">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-900 dark:text-white">Gemini 3.5 Evaluation</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white">Ollama AI Evaluation</span>
                 <Badge variant="success" className="text-[10px] font-bold px-1.5 py-0">9.7 / 10</Badge>
               </div>
               <span className="text-[11px] text-slate-500 block">Instant latency: 1.2s</span>
@@ -839,7 +839,7 @@ export default function Home() {
             { metric: '15,000+', label: 'Mock Sessions Completed', icon: Users, color: 'text-[#2563EB]' },
             { metric: '94%', label: 'Offer Conversion Rate', icon: TrendingUp, color: 'text-[#10B981]' },
             { metric: '100+', label: 'Supported Tech Roles', icon: Layers, color: 'text-[#2563EB]' },
-            { metric: '< 1.8s', label: 'Gemini AI Response Time', icon: Zap, color: 'text-[#10B981]' },
+            { metric: '< 1.8s', label: 'Ollama AI Response Time', icon: Zap, color: 'text-[#10B981]' },
           ].map((stat, i) => {
             const Icon = stat.icon;
             return (
@@ -981,7 +981,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-3">16-Band Real-Time Audio Dock</h3>
               <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
-                Real-time frequency visualizer gives immediate confirmation of voice clarity. Audio responses are transcribed via Gemini multimodal intelligence.
+                Real-time frequency visualizer gives immediate confirmation of voice clarity. Audio responses are transcribed via local AI Whisper intelligence.
               </p>
               <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                 Test Voice Engine <ChevronRight className="w-3.5 h-3.5" />
@@ -1034,7 +1034,7 @@ export default function Home() {
                 company: "Fintech Unicorn"
               },
               {
-                quote: "The Gemini AI model failover and rapid evaluation meant zero lag during my sessions. Truly an indispensable interview preparation platform.",
+                quote: "The Ollama AI model evaluation and rapid feedback meant zero lag during my sessions. Truly an indispensable interview preparation platform.",
                 name: "Marcus Vance",
                 role: "Cloud Architect",
                 company: "Enterprise SaaS"

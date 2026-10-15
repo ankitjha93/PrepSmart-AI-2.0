@@ -69,7 +69,7 @@ const ROLE_PRESETS = [
     title: 'AI / ML Engineer',
     icon: '🤖',
     role: 'AI / Machine Learning Engineer',
-    tech: 'Python, PyTorch, Gemini API, RAG Pipelines, Vector Databases',
+    tech: 'Python, PyTorch, Ollama LLMs, RAG Pipelines, Vector Databases',
     defaultExp: '3',
     gradient: 'from-purple-500 to-pink-600',
   },
@@ -112,7 +112,7 @@ function AddNewInterview() {
   const [questionCount, setQuestionCount] = useState(5);
   const [activePreset, setActivePreset] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [ollamaInfo, setOllamaInfo] = useState({ online: false, model: 'llama3.2' });
+  const [ollamaInfo, setOllamaInfo] = useState({ online: false, model: 'llama3.3' });
   const contentRef = useRef(null);
   const router = useRouter();
   const { user } = useAuth();
@@ -122,7 +122,7 @@ function AddNewInterview() {
     OllamaService.checkStatus().then((status) => {
       setOllamaInfo({
         online: Boolean(status.online),
-        model: status.activeModel || status.model || 'llama3.2',
+        model: status.activeModel || status.model || 'llama3.3',
         models: status.models || [],
       });
     });
@@ -285,7 +285,7 @@ function AddNewInterview() {
         <div className="absolute top-3 right-3">
           <Badge variant="blue" className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
             <span className={`w-1.5 h-1.5 rounded-full ${ollamaInfo.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-            Ollama {ollamaInfo.model || 'llama3.2'}
+            Ollama {ollamaInfo.model || 'llama3.3'}
           </Badge>
         </div>
         <div className="plus-icon w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 group-hover:bg-blue-600 text-blue-600 group-hover:text-white flex items-center justify-center transition-colors shadow-sm">
