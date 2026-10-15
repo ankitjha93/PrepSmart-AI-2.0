@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Calendar, 
   Briefcase, 
@@ -19,19 +19,89 @@ import {
   Sparkles, 
   Trash2, 
   AlertTriangle, 
-  Loader2 
+  Loader2,
+  Code2,
+  Server,
+  BrainCircuit,
+  Cloud,
+  Layers,
+  Star,
+  CheckCircle2,
+  Clock,
+  RotateCcw,
+  Play
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db } from '@/utils/db';
-import { MockInterview, UserAnswer } from '@/utils/schema';
-import { eq } from 'drizzle-orm';
 import gsap from 'gsap';
 
-function InterviewItemCard({ interview, onDelete }) {
+// Helper to assign a dynamic role icon based on job position title
+const getRoleTheme = (roleTitle = '') => {
+  const title = roleTitle.toLowerCase();
+  if (title.includes('frontend') || title.includes('react') || title.includes('web')) {
+    return {
+      icon: Code2,
+      iconBg: 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 border-cyan-200/60',
+      accentColor: 'from-cyan-500 to-blue-600'
+    };
+  }
+  if (title.includes('ai') || title.includes('machine learning') || title.includes('data') || title.includes('ml')) {
+    return {
+      icon: BrainCircuit,
+      iconBg: 'bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border-purple-200/60',
+      accentColor: 'from-purple-500 to-indigo-600'
+    };
+  }
+  if (title.includes('backend') || title.includes('system') || title.includes('architect') || title.includes('api')) {
+    return {
+      icon: Server,
+      iconBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/60',
+      accentColor: 'from-emerald-500 to-teal-600'
+    };
+  }
+  if (title.includes('cloud') || title.includes('devops') || title.includes('infra')) {
+    return {
+      icon: Cloud,
+      iconBg: 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/60',
+      accentColor: 'from-amber-500 to-orange-600'
+    };
+  }
+  return {
+    icon: Code2,
+    iconBg: 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200/60',
+    accentColor: 'from-blue-600 to-indigo-600'
+  };
+};
+
+function InterviewItemCard({ interview, answerStats, onDelete }) {
     const router = useRouter();
     const cardRef = useRef(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Extract total question count
+    const totalQuestions = useMemo(() => {
+        try {
+            const parsed = JSON.parse(interview?.jsonMockResp);
+            if (Array.isArray(parsed)) return parsed.length;
+        } catch (e) {}
+        return 5;
+    }, [interview?.jsonMockResp]);
+
+    // Parse tech stack tags
+    const techTags = useMemo(() => {
+        if (!interview?.jobDesc) return [];
+        return interview.jobDesc
+            .split(/[,|/]/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0 && s.length <= 25);
+    }, [interview?.jobDesc]);
+
+    const theme = getRoleTheme(interview?.jobPosition);
+    const RoleIcon = theme.icon;
+
+    const answersCompleted = answerStats?.count || 0;
+    const avgScore = answerStats?.avgRating;
+    const isCompleted = answersCompleted > 0;
 
     const onStart = () => {
         router.push('/dashboard/interview/' + interview?.mockId);
@@ -48,10 +118,10 @@ function InterviewItemCard({ interview, onDelete }) {
         const x = (e.clientX - rect.left - rect.width / 2) / rect.width;
         const y = (e.clientY - rect.top - rect.height / 2) / rect.height;
         gsap.to(card, {
-            rotationY: x * 6,
-            rotationX: -y * 6,
+            rotationY: x * 5,
+            rotationX: -y * 5,
             y: -4,
-            transformPerspective: 800,
+            transformPerspective: 900,
             duration: 0.25,
             ease: "power2.out"
         });
@@ -71,13 +141,13 @@ function InterviewItemCard({ interview, onDelete }) {
     const handleBtnMouseMove = (e) => {
         const btn = e.currentTarget;
         const rect = btn.getBoundingClientRect();
-        const x = (e.clientX - rect.left - rect.width / 2) * 0.3;
-        const y = (e.clientY - rect.top - rect.height / 2) * 0.3;
+        const x = (e.clientX - rect.left - rect.width / 2) * 0.25;
+        const y = (e.clientY - rect.top - rect.height / 2) * 0.25;
         gsap.to(btn, { x, y, duration: 0.2, ease: "power2.out" });
     };
 
     const handleBtnMouseLeave = (e) => {
-        gsap.to(e.currentTarget, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1.1, 0.35)" });
+        gsap.to(e.currentTarget, { x: 0, y: 0, duration: 0.4, ease: "elastic.out(1, 0.35)" });
     };
 
     const handleConfirmDelete = async () => {
@@ -103,7 +173,6 @@ function InterviewItemCard({ interview, onDelete }) {
 
             setDeleteDialogOpen(false);
 
-            // 3. Smooth card exit animation
             if (cardRef.current) {
                 gsap.to(cardRef.current, {
                     scale: 0.88,
@@ -133,77 +202,125 @@ function InterviewItemCard({ interview, onDelete }) {
                 ref={cardRef}
                 onMouseMove={handleCardMouseMove}
                 onMouseLeave={handleCardMouseLeave}
-                className='interview-card group relative p-0 overflow-hidden bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow rounded-3xl'
+                className='interview-card group relative p-0 overflow-hidden bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 rounded-3xl flex flex-col justify-between'
             >
-                {/* Top gradient highlight on hover */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {/* Top dynamic gradient highlight line */}
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${theme.accentColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
 
-                <CardHeader className="p-6 pb-3">
-                    <div className='flex items-start justify-between gap-2'>
-                        <div className='flex items-center gap-2.5 min-w-0'>
-                            <div className='w-9 h-9 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/60 dark:border-blue-900/60 shadow-sm group-hover:scale-105 transition-transform flex-shrink-0'>
-                                <Briefcase className='w-4 h-4' />
+                <div>
+                    {/* Header */}
+                    <CardHeader className="p-5 pb-3">
+                        <div className='flex items-start justify-between gap-3'>
+                            <div className='flex items-center gap-3 min-w-0'>
+                                <div className={`w-10 h-10 rounded-2xl ${theme.iconBg} flex items-center justify-center border shadow-sm group-hover:scale-110 transition-transform shrink-0`}>
+                                    <RoleIcon className='w-5 h-5' />
+                                </div>
+                                <div className='min-w-0'>
+                                    <CardTitle className='font-black text-base text-slate-900 dark:text-white tracking-tight truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors' title={interview?.jobPosition}>
+                                        {interview?.jobPosition}
+                                    </CardTitle>
+                                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                        <Calendar className='w-3 h-3 text-slate-400 shrink-0' />
+                                        <span>{interview?.createdAt || 'Recent session'}</span>
+                                        <span>•</span>
+                                        <span className="font-semibold text-slate-600 dark:text-slate-300">{totalQuestions} Qs</span>
+                                    </p>
+                                </div>
                             </div>
-                            <div className='min-w-0'>
-                                <CardTitle className='font-bold text-base text-slate-900 dark:text-white tracking-tight truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors' title={interview?.jobPosition}>
-                                    {interview?.jobPosition}
-                                </CardTitle>
+
+                            {/* Badges & Actions */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <Badge variant="blue" className="text-[10px] font-bold px-2 py-0.5">
+                                    {interview?.jobExperience} Yrs Exp
+                                </Badge>
+
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteDialogOpen(true);
+                                    }}
+                                    className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors flex items-center justify-center cursor-pointer opacity-70 hover:opacity-100"
+                                    title="Delete mock interview"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                             </div>
                         </div>
+                    </CardHeader>
 
-                        {/* Right: Badge & Delete Option */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                            <Badge variant="blue" className="text-[11px] font-semibold">
-                                {interview?.jobExperience} Yrs Exp
-                            </Badge>
+                    {/* Content: Tech Stack Chips & Evaluation Metrics */}
+                    <CardContent className="px-5 py-2 space-y-3">
+                        {/* Tech Stack Chips */}
+                        {techTags.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {techTags.slice(0, 3).map((tag, i) => (
+                                    <span 
+                                        key={i} 
+                                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60 truncate max-w-[120px]"
+                                    >
+                                        {tag}
+                                    </span>
+                                ))}
+                                {techTags.length > 3 && (
+                                    <span className="text-[10px] font-bold text-slate-400 px-1">
+                                        +{techTags.length - 3} more
+                                    </span>
+                                )}
+                            </div>
+                        )}
 
-                            {/* Delete Button */}
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteDialogOpen(true);
-                                }}
-                                className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors flex items-center justify-center cursor-pointer opacity-70 hover:opacity-100"
-                                title="Delete mock interview"
-                            >
-                                <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                        {/* Progress Status Bar / Score */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/70 flex items-center justify-between text-xs">
+                            {isCompleted ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-black text-xs shadow-xs">
+                                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                        <span>{avgScore ? `${avgScore}/10` : 'Evaluated'}</span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                        {answersCompleted}/{totalQuestions} Answered
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-xs">
+                                    <Sparkles className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
+                                    <span>Ready to Simulate</span>
+                                </div>
+                            )}
+
+                            <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>~{totalQuestions * 5} min</span>
+                            </div>
                         </div>
-                    </div>
-                </CardHeader>
+                    </CardContent>
+                </div>
 
-                <CardContent className="px-6 py-2">
-                    <div className='flex items-center gap-4 text-xs text-slate-400'>
-                        <div className="flex items-center gap-1.5">
-                            <Calendar className='w-3.5 h-3.5' />
-                            <span>{interview?.createdAt || 'Recently created'}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                            <Sparkles className="w-3 h-3" />
-                            <span>AI Ready</span>
-                        </div>
-                    </div>
-                </CardContent>
-
-                <CardFooter className='p-6 pt-3 flex items-center gap-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/20'>
+                {/* Footer Buttons */}
+                <CardFooter className='p-5 pt-3 flex items-center gap-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/30'>
                     <Button 
                         size="sm" 
                         variant="outline" 
-                        className="w-full text-xs font-semibold rounded-xl hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-1/2 h-9 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         onClick={onFeedbackPress}
                     >
                         <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
                         <span>Feedback</span>
                     </Button>
+
                     <Button 
                         size="sm" 
                         onMouseMove={handleBtnMouseMove}
                         onMouseLeave={handleBtnMouseLeave}
-                        className="w-full text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        className={`w-1/2 h-9 text-xs font-bold rounded-xl text-white shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            isCompleted 
+                                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 shadow-indigo-500/20'
+                                : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-blue-500/25'
+                        }`}
                         onClick={onStart}
                     >
-                        <span>Start Mock</span>
+                        <span>{isCompleted ? 'Retake Mock' : 'Start Mock'}</span>
                         <ArrowUpRight className='w-3.5 h-3.5' />
                     </Button>
                 </CardFooter>
