@@ -522,6 +522,34 @@ function RecordAnswerSection({
           });
           audioStreamRef.current = stream;
 
+          // Initialize MediaRecorder for guaranteed physical audio transcription fallback
+          audioChunksRef.current = [];
+          if (typeof MediaRecorder !== 'undefined') {
+            try {
+              const preferredMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : MediaRecorder.isTypeSupported('audio/webm')
+                  ? 'audio/webm'
+                  : MediaRecorder.isTypeSupported('audio/mp4')
+                    ? 'audio/mp4'
+                    : '';
+              const recorder = preferredMime
+                ? new MediaRecorder(stream, { mimeType: preferredMime })
+                : new MediaRecorder(stream);
+              mediaRecorderRef.current = recorder;
+
+              recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                  audioChunksRef.current.push(event.data);
+                }
+              };
+
+              recorder.start(250);
+            } catch (recErr) {
+              console.warn('MediaRecorder initialization notice:', recErr);
+            }
+          }
+
           // Re-enumerate to get human-readable device labels once permission is granted
           if (navigator.mediaDevices.enumerateDevices) {
             navigator.mediaDevices.enumerateDevices().then((devices) => {
@@ -612,7 +640,7 @@ function RecordAnswerSection({
   };
 
   // Stop Recording & Automatically Evaluate with Ollama AI
-  const stopAudioRecording = () => {
+  const stopAudioRecording = async () => {
     isRecordingRef.current = false;
     shouldRestartRecognitionRef.current = false;
     setIsRecording(false);
@@ -635,6 +663,18 @@ function RecordAnswerSection({
       recognitionRef.current = null;
     }
 
+    // Stop MediaRecorder and grab audio blob for transcription
+    let audioBlobToTranscribe = null;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+        if (audioChunksRef.current && audioChunksRef.current.length > 0) {
+          const mime = mediaRecorderRef.current.mimeType || 'audio/webm';
+          audioBlobToTranscribe = new Blob(audioChunksRef.current, { type: mime });
+        }
+      } catch (e) {}
+    }
+
     cleanupAudioVisualizer();
 
     if (audioStreamRef.current) {
@@ -644,13 +684,44 @@ function RecordAnswerSection({
       audioStreamRef.current = null;
     }
 
-    // Determine final candidate answer across all streams
-    const candidateAnswer = (
+    // Determine candidate answer from real-time speech engine
+    let candidateAnswer = (
       latestTranscriptRef.current ||
       userAnswer ||
       (baseTranscriptRef.current + (sessionFinalRef.current || '')) ||
       ''
     ).trim();
+
+    // If browser speech recognition failed to capture or left the response empty:
+    // Transcribe directly from recorded physical audio via /api/transcribe!
+    if ((!candidateAnswer || candidateAnswer.length < 5) && audioBlobToTranscribe && audioBlobToTranscribe.size > 800) {
+      toast.loading('Transcribing spoken response...');
+      setIsTranscribing(true);
+      try {
+        const formData = new FormData();
+        formData.append('audio', audioBlobToTranscribe, 'response.webm');
+
+        const res = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        toast.dismiss();
+
+        if (data.transcript && data.transcript.trim().length > 0) {
+          candidateAnswer = data.transcript.trim();
+          setUserAnswer(candidateAnswer);
+          latestTranscriptRef.current = candidateAnswer;
+          toast.success('Spoken answer transcribed successfully!');
+        }
+      } catch (err) {
+        console.warn('Audio transcription error:', err);
+        toast.dismiss();
+      } finally {
+        setIsTranscribing(false);
+      }
+    }
 
     // Automatically evaluate with Ollama AI as requested
     if (candidateAnswer && candidateAnswer.length >= 3) {
