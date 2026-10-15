@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { WaveFile } from 'wavefile';
+import { pipeline } from '@xenova/transformers';
 
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+export const dynamic = 'force-dynamic';
 
-const MODEL_CANDIDATES = [
-  'gemini-3.5-flash',
-  'gemini-3.7-flash',
-  'gemini-flash-latest',
-  'gemini-3.8-flash',
-];
+let transcriberInstance = null;
+let transcriberPromise = null;
+
+async function getTranscriber() {
+  if (transcriberInstance) return transcriberInstance;
+  if (!transcriberPromise) {
+    transcriberPromise = (async () => {
+      const p = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+      transcriberInstance = p;
+      return p;
+    })();
+  }
+  return await transcriberPromise;
+}
 
 export async function POST(req) {
   try {
@@ -23,46 +31,69 @@ export async function POST(req) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // If file is too small (under 1KB, likely silence/empty)
-    if (buffer.length < 1000) {
+    // If audio payload is empty or too small to contain speech
+    if (buffer.length < 500) {
       return NextResponse.json({ transcript: '' });
     }
 
-    const base64Audio = buffer.toString('base64');
-    const rawMimeType = file.type || 'audio/webm';
-    const cleanMimeType = rawMimeType.split(';')[0] || 'audio/webm';
+    let audioData = null;
 
-    if (!genAI) {
-      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
-    }
+    try {
+      const wav = new WaveFile(buffer);
+      wav.toBitDepth('32f');
+      wav.toSampleRate(16000);
+      let samples = wav.getSamples();
 
-    let transcript = '';
-    let lastError = null;
-
-    for (const modelName of MODEL_CANDIDATES) {
-      try {
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent([
-          {
-            inlineData: {
-              mimeType: cleanMimeType,
-              data: base64Audio,
-            },
-          },
-          "Please transcribe this candidate's spoken technical interview response verbatim. Return ONLY the transcribed text, nothing else. Do not add quotes, introductory phrases, or markdown explanations. If no discernible speech or only silence/background noise is heard, return an empty string.",
-        ]);
-
-        transcript = result.response.text().trim();
-        if (transcript) break;
-      } catch (err) {
-        console.warn(`Model ${modelName} audio transcription notice:`, err.message);
-        lastError = err;
+      if (Array.isArray(samples)) {
+        if (samples.length > 1) {
+          const SCALING_FACTOR = Math.sqrt(2);
+          const mono = new Float32Array(samples[0].length);
+          for (let i = 0; i < samples[0].length; ++i) {
+            mono[i] = (SCALING_FACTOR * (samples[0][i] + samples[1][i])) / 2;
+          }
+          audioData = mono;
+        } else {
+          audioData = samples[0];
+        }
+      } else {
+        audioData = samples;
       }
+    } catch (parseErr) {
+      console.warn('WAV parser fallback notice:', parseErr.message);
     }
 
-    return NextResponse.json({ transcript });
+    if (!audioData || audioData.length === 0) {
+      return NextResponse.json({
+        transcript: '',
+        notice: 'Could not extract audio samples or audio format unsupported',
+      });
+    }
+
+    const transcriber = await getTranscriber();
+    const result = await transcriber(audioData, {
+      chunk_length_s: 30,
+      stride_length_s: 5,
+      return_timestamps: false,
+    });
+
+    let rawTranscript = (result?.text || '').trim();
+
+    // Clean up common silence hallucinations from whisper
+    const cleaned = rawTranscript
+      .replace(/^\[.*?\]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // If it's a known non-speech whisper artifact on silent audio
+    const isHallucination = /^(you|thank you|thanks for watching|subscribe|bye)\.?$/i.test(cleaned);
+    const finalTranscript = isHallucination ? '' : cleaned;
+
+    return NextResponse.json({
+      success: true,
+      transcript: finalTranscript,
+    });
   } catch (error) {
-    console.error('Audio transcription route error:', error);
+    console.error('Local speech transcription route error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to transcribe audio' },
       { status: 500 }

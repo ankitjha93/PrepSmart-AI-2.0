@@ -87,6 +87,78 @@ function RecordAnswerSection({
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
 
+  // Helper: Convert recorded audio blob to standard 16kHz mono PCM WAV for local AI Whisper
+  const convertBlobTo16kWav = async (blob) => {
+    if (!blob) return null;
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return blob;
+
+      const audioCtx = new AudioCtx();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      let channelData;
+      if (audioBuffer.numberOfChannels > 1) {
+        const left = audioBuffer.getChannelData(0);
+        const right = audioBuffer.getChannelData(1);
+        channelData = new Float32Array(left.length);
+        for (let i = 0; i < left.length; i++) {
+          channelData[i] = (left[i] + right[i]) / 2;
+        }
+      } else {
+        channelData = audioBuffer.getChannelData(0);
+      }
+
+      const sourceRate = audioBuffer.sampleRate;
+      const targetRate = 16000;
+      let downsampledData = channelData;
+      if (sourceRate !== targetRate) {
+        const ratio = sourceRate / targetRate;
+        const newLength = Math.round(channelData.length / ratio);
+        downsampledData = new Float32Array(newLength);
+        for (let i = 0; i < newLength; i++) {
+          const originalIndex = Math.min(channelData.length - 1, Math.floor(i * ratio));
+          downsampledData[i] = channelData[originalIndex];
+        }
+      }
+
+      const wavBuffer = new ArrayBuffer(44 + downsampledData.length * 2);
+      const view = new DataView(wavBuffer);
+
+      const writeStr = (v, offset, str) => {
+        for (let i = 0; i < str.length; i++) {
+          v.setUint8(offset + i, str.charCodeAt(i));
+        }
+      };
+
+      writeStr(view, 0, 'RIFF');
+      view.setUint32(4, 36 + downsampledData.length * 2, true);
+      writeStr(view, 8, 'WAVE');
+      writeStr(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, targetRate, true);
+      view.setUint32(28, targetRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(view, 36, 'data');
+      view.setUint32(40, downsampledData.length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < downsampledData.length; i++, offset += 2) {
+        const s = Math.max(-1, Math.min(1, downsampledData[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+
+      return new Blob([view], { type: 'audio/wav' });
+    } catch (err) {
+      console.warn('WAV conversion fallback notice:', err);
+      return blob;
+    }
+  };
+
   // Enumerate all available audio input microphones
   const refreshAudioDevices = async () => {
     if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
@@ -426,22 +498,17 @@ function RecordAnswerSection({
       };
 
       recognition.onerror = (e) => {
-        console.warn('Speech recognition error event:', e.error);
+        // Silently handle network / privacy-blocking events (e.g., Brave shields or Chromium without Google cloud keys)
         if (e.error === 'not-allowed') {
           setMicPermissionError(true);
-          setSpeechError('Microphone permission blocked. Please allow mic in browser address bar.');
-          toast.error('Microphone permission was denied. Please allow microphone access in your browser address bar.');
+          toast.error('Microphone permission denied. Please allow microphone access in your browser address bar.');
           shouldRestartRecognitionRef.current = false;
         } else if (e.error === 'network') {
-          networkRetriesRef.current += 1;
-          setSpeechError('Browser speech engine network timeout. You can continue speaking or type directly.');
-          if (networkRetriesRef.current > 6) {
-            shouldRestartRecognitionRef.current = false;
-          }
-        } else if (e.error === 'audio-capture') {
-          setSpeechError('Microphone hardware capture issue. Please verify your selected microphone.');
-        } else if (e.error === 'no-speech') {
-          // Normal thinking pause, continue listening
+          // Gracefully continue using physical MediaRecorder & local AI transcriber without disruptive error alerts
+          shouldRestartRecognitionRef.current = false;
+          setSpeechError(null);
+        } else if (e.error === 'no-speech' || e.error === 'audio-capture') {
+          // Normal thinking pause, continue recording physical audio
         }
       };
 
@@ -663,16 +730,26 @@ function RecordAnswerSection({
       recognitionRef.current = null;
     }
 
-    // Stop MediaRecorder and grab audio blob for transcription
+    // Safely stop MediaRecorder and retrieve complete audio recording
     let audioBlobToTranscribe = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
-        mediaRecorderRef.current.stop();
-        if (audioChunksRef.current && audioChunksRef.current.length > 0) {
-          const mime = mediaRecorderRef.current.mimeType || 'audio/webm';
-          audioBlobToTranscribe = new Blob(audioChunksRef.current, { type: mime });
-        }
-      } catch (e) {}
+        await new Promise((resolve) => {
+          const rec = mediaRecorderRef.current;
+          rec.onstop = () => {
+            const mime = rec.mimeType || 'audio/webm';
+            if (audioChunksRef.current && audioChunksRef.current.length > 0) {
+              audioBlobToTranscribe = new Blob(audioChunksRef.current, { type: mime });
+            }
+            resolve();
+          };
+          rec.stop();
+        });
+      } catch (e) {
+        console.warn('MediaRecorder stop notice:', e);
+      }
+    } else if (audioChunksRef.current && audioChunksRef.current.length > 0) {
+      audioBlobToTranscribe = new Blob(audioChunksRef.current, { type: 'audio/webm' });
     }
 
     cleanupAudioVisualizer();
@@ -684,7 +761,7 @@ function RecordAnswerSection({
       audioStreamRef.current = null;
     }
 
-    // Determine candidate answer from real-time speech engine
+    // Determine candidate answer
     let candidateAnswer = (
       latestTranscriptRef.current ||
       userAnswer ||
@@ -692,14 +769,15 @@ function RecordAnswerSection({
       ''
     ).trim();
 
-    // If browser speech recognition failed to capture or left the response empty:
-    // Transcribe directly from recorded physical audio via /api/transcribe!
-    if ((!candidateAnswer || candidateAnswer.length < 5) && audioBlobToTranscribe && audioBlobToTranscribe.size > 800) {
-      toast.loading('Transcribing spoken response...');
+    // If real-time cloud speech was blocked or answer is empty:
+    // Process recorded audio using local AI STT (/api/transcribe)!
+    if ((!candidateAnswer || candidateAnswer.length < 5) && audioBlobToTranscribe && audioBlobToTranscribe.size > 500) {
+      toast.loading('Transcribing spoken response with local AI...');
       setIsTranscribing(true);
       try {
+        const wavBlob = await convertBlobTo16kWav(audioBlobToTranscribe);
         const formData = new FormData();
-        formData.append('audio', audioBlobToTranscribe, 'response.webm');
+        formData.append('audio', wavBlob || audioBlobToTranscribe, 'response.wav');
 
         const res = await fetch('/api/transcribe', {
           method: 'POST',
@@ -919,22 +997,6 @@ function RecordAnswerSection({
         </div>
       )}
 
-      {/* Speech Recognition Error Banner */}
-      {isRecording && speechError && (
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs shadow-md">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-            <span className="font-medium">{speechError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => startRecognitionSession()}
-            className="h-7 text-[11px] font-bold rounded-lg px-2.5 bg-amber-200 dark:bg-amber-900/60 border border-amber-400 dark:border-amber-700 hover:bg-amber-300 dark:hover:bg-amber-800 text-amber-950 dark:text-amber-100 cursor-pointer transition-colors"
-          >
-            Retry Recognition
-          </button>
-        </div>
-      )}
 
       {/* Browser Speech Recognition Support Banner */}
       {!speechSupported && (
