@@ -128,9 +128,16 @@ function AddNewInterview() {
     });
   }, []);
 
-  // Listen for global modal open triggers (e.g. from navbar "+ New Mock")
+  // Listen for global modal open triggers (e.g. from navbar "+ New Mock" or featured tracks)
   useEffect(() => {
-    const handleOpen = () => setOpenDailog(true);
+    const handleOpen = (e) => {
+      if (e?.detail) {
+        if (e.detail.role) setJobPosition(e.detail.role);
+        if (e.detail.stack) setJobDesc(e.detail.stack);
+        if (e.detail.exp) setJobExperience(e.detail.exp);
+      }
+      setOpenDailog(true);
+    };
     window.addEventListener('prepsmart_open_new_mock', handleOpen);
     return () => window.removeEventListener('prepsmart_open_new_mock', handleOpen);
   }, []);
