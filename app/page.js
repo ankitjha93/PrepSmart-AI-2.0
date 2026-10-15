@@ -14,6 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import React, { useRef, useState, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
+import { OllamaService } from "@/utils/OllamaAIModal";
 import { 
   ArrowRight, 
   Sparkles, 
@@ -43,7 +44,11 @@ import {
   Target,
   Flame,
   Bot,
-  BarChart3
+  BarChart3,
+  Sliders,
+  FileText,
+  Lock,
+  Globe
 } from "lucide-react";
 
 // Interactive Simulation Data for 5 Key Tech Roles
@@ -52,14 +57,14 @@ const DEMO_ROLES = [
     id: 'fullstack',
     title: 'Full Stack Engineer',
     category: 'Full Stack',
-    stack: 'React, Node.js, PostgreSQL',
-    question: 'How do you optimize database query performance and handle optimistic UI updates during state changes?',
-    userAns: 'I analyze query execution plans using EXPLAIN ANALYZE, apply targeted composite indices, and in React implement optimistic updates with automatic rollback states on mutation errors.',
+    stack: 'React 19, Next.js, Node.js, PostgreSQL',
+    question: 'How do you optimize database query performance and handle optimistic UI updates during state mutations?',
+    userAns: 'I analyze execution plans with EXPLAIN ANALYZE, apply targeted composite indices, and in React implement optimistic updates with automatic rollback states on mutation errors.',
     rating: '9.4',
     clarity: '96%',
     depth: '92%',
     confidence: '94%',
-    feedback: 'Excellent breakdown of database indexing combined with practical client-side state rollback handling.',
+    feedback: 'Superb breakdown of database indexing combined with practical client-side state rollback handling.',
     strengths: ['Addressed both backend query planning and frontend optimistic UX.', 'Properly explained rollback mechanisms.'],
     improvement: 'Consider mentioning connection pool sizing and Redis caching layers.'
   },
@@ -67,7 +72,7 @@ const DEMO_ROLES = [
     id: 'frontend',
     title: 'Frontend Specialist',
     category: 'Frontend',
-    stack: 'Next.js 14, React, Tailwind CSS',
+    stack: 'Next.js App Router, React 19, Tailwind CSS',
     question: 'Explain how React Server Components (RSC) differ from Client Components regarding bundle size and hydration.',
     userAns: 'RSCs render purely on the server and stream serialized zero-bundle-size JSON to the client, completely bypassing client-side JavaScript hydration overhead for static content.',
     rating: '9.7',
@@ -97,7 +102,7 @@ const DEMO_ROLES = [
     id: 'ai',
     title: 'AI / ML Engineer',
     category: 'AI / ML',
-    stack: 'PyTorch, Ollama LLM, RAG Pipelines',
+    stack: 'PyTorch, Ollama Llama 3.3, RAG Pipelines',
     question: 'What strategies reduce hallucination and improve retrieval recall in production Retrieval-Augmented Generation (RAG)?',
     userAns: 'By deploying hybrid vector + keyword search (BM25), cross-encoder re-ranking models, contextual document chunking with metadata headers, and strict semantic validation guardrails.',
     rating: '9.6',
@@ -114,7 +119,7 @@ const DEMO_ROLES = [
     category: 'Cloud / DevOps',
     stack: 'Kubernetes, Terraform, AWS, CI/CD',
     question: 'How do you structure zero-downtime blue/green and canary deployments with automated rollbacks on Kubernetes?',
-    userAns: 'Using Argo Rollouts or Flagger with Istio traffic routing, monitoring Prometheus metric error rates, and automatically rolling back traffic if HTTP 5xx exceeds 0.5% threshold.',
+    userAns: 'Using Argo Rollouts with Istio traffic routing, monitoring Prometheus metric error rates, and automatically rolling back traffic if HTTP 5xx exceeds 0.5% threshold.',
     rating: '9.8',
     clarity: '97%',
     depth: '99%',
@@ -129,44 +134,52 @@ const DEMO_ROLES = [
 const PLATFORM_STEPS = [
   {
     step: "01",
-    title: "Define Your Target Role",
-    desc: "Specify your exact job title, tech stack (e.g., React, Go, PyTorch), and seniority level. Ollama AI creates authentic technical & behavioral questions in seconds.",
-    badge: "Tailored AI Generator",
-    highlight: "Custom Job Description & Stack Support"
+    title: "Define Target Role & Demeanor",
+    desc: "Specify your exact job title, tech stack (React, Node, Go, PyTorch), seniority level, and interviewer attitude (Supportive, Neutral, or FAANG Strict).",
+    badge: "Dynamic Persona Calibration",
+    highlight: "Custom Job Description & Seniority Support"
   },
   {
     step: "02",
-    title: "Live Voice & Webcam Practice",
+    title: "Live Voice & Audio Dock Practice",
     desc: "Speak naturally while our 16-band real-time audio visualizer confirms clear input. Simulated hiring manager questions replicate real high-pressure calls.",
     badge: "16-Band Audio Dock",
-    highlight: "Speech-to-Text with Real-Time Feedback"
+    highlight: "Speech-to-Text with Real-Time Frequency Feedback"
   },
   {
     step: "03",
     title: "Instant Scoring & Actionable Feedback",
-    desc: "Receive question-by-question scoring out of 10, compare against ideal benchmark responses, and get surgical tips to level up your interview performance.",
-    badge: "Comprehensive Report",
-    highlight: "FAANG-Calibrated Rubric Analysis"
+    desc: "Receive question-by-question scoring out of 10, compare against Staff benchmark responses, and get surgical tips to level up your interview performance.",
+    badge: "Staff-Level Rubric Analysis",
+    highlight: "FAANG-Calibrated Score & Improvement Dossier"
   }
 ];
 
-// FAQs Data
+// Comprehensive FAQs Data
 const FAQS = [
   {
     q: "How does the real-time speech visualizer work?",
-    a: "PrepSmart connects to your microphone using the HTML5 Web Audio API, extracting real-time audio frequencies into a responsive 16-band visualizer dock so you can visually verify that your voice is loud, clear, and perfectly captured."
+    a: "PrepSmart connects to your microphone using the HTML5 Web Audio API, extracting real-time audio frequencies into a responsive 16-band visualizer dock so you can visually verify that your voice is loud, clear, and perfectly captured without clipping."
   },
   {
-    q: "Does PrepSmart record or store my webcam video?",
-    a: "No! Your webcam video feed is processed 100% locally in your browser. Video streams are never recorded or stored on any server. You can also turn off your camera at any point during your interview."
+    q: "How does Ollama AI evaluate my interview responses?",
+    a: "Our integration queries Meta's open-source Llama 3.3 via a zero-CORS serverless proxy. It parses your spoken transcripts against verified Staff Engineer rubrics, scoring architectural tradeoffs, code efficiency, communication clarity, and STAR-method structure."
   },
   {
-    q: "What types of interview questions are generated?",
-    a: "Our Ollama open-source AI engine (Llama 3.3) generates authentic technical, algorithmic, system design, and behavioral questions tailored directly to your target company, role, tech stack, and years of experience."
+    q: "Is my microphone or webcam video recorded or stored?",
+    a: "No! Your video feed and raw audio are processed 100% locally in your browser. Raw audio streams are never recorded or stored on any server—only the transcribed text you submit is evaluated and stored in your private Supabase database."
+  },
+  {
+    q: "Can I use PrepSmart AI with my own local Ollama instance?",
+    a: "Yes! PrepSmart is engineered with full local Ollama support on port 11434. If you have Ollama running locally, our backend automatically routes requests to your machine for 100% private, zero-latency inference."
   },
   {
     q: "Where is my interview history stored?",
     a: "Your mock interview sessions, questions, transcribed answers, ratings, and feedback are securely stored in your dedicated PostgreSQL database powered by Supabase with Row Level Security (RLS)."
+  },
+  {
+    q: "Can I export my performance evaluations?",
+    a: "Yes! You can view detailed feedback dossiers, track your score trajectory over time on the Candidate Dashboard, and export comprehensive feedback reports to share with mentors."
   }
 ];
 
@@ -180,6 +193,17 @@ export default function Home() {
   const [activeStepTab, setActiveStepTab] = useState(0);
   const [openFaq, setOpenFaq] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [ollamaStatus, setOllamaStatus] = useState({ online: false, model: 'llama3.3' });
+
+  // Probe Ollama status on mount
+  useEffect(() => {
+    OllamaService.checkStatus().then((res) => {
+      if (res?.online) {
+        const m = res.models?.[0]?.name || 'llama3.3';
+        setOllamaStatus({ online: true, model: m.replace(':latest', '') });
+      }
+    }).catch(() => {});
+  }, []);
 
   // GSAP Animations
   useGSAP(() => {
@@ -187,6 +211,7 @@ export default function Home() {
 
     // Hero Entry Animation
     tl.from(".hero-badge", { y: -25, opacity: 0, duration: 0.7 })
+      .from(".market-ticker", { y: -15, opacity: 0, duration: 0.6 }, "-=0.3")
       .from(".hero-title", { y: 35, opacity: 0, duration: 0.9 }, "-=0.4")
       .from(".hero-desc", { y: 25, opacity: 0, duration: 0.7 }, "-=0.5")
       .from(".hero-cta", { y: 20, opacity: 0, stagger: 0.1, duration: 0.7 }, "-=0.4")
@@ -328,140 +353,6 @@ export default function Home() {
     });
   };
 
-  // Button 1: Test Voice Simulation Hover Interaction
-  const handleVoiceSimEnter = (e) => {
-    const btn = e.currentTarget;
-    const micIcon = btn.querySelector('.voice-sim-mic');
-    if (micIcon) {
-      gsap.to(micIcon, {
-        scale: 1.35,
-        rotate: -12,
-        duration: 0.25,
-        ease: "back.out(2.5)"
-      });
-    }
-    if (!isSimulatingAnswer) {
-      gsap.to(".simulated-audio-wave", {
-        scaleY: () => Math.random() * 0.7 + 0.4,
-        stagger: 0.02,
-        duration: 0.25,
-        ease: "power2.out"
-      });
-    }
-  };
-
-  const handleVoiceSimLeave = (e) => {
-    const btn = e.currentTarget;
-    const micIcon = btn.querySelector('.voice-sim-mic');
-    if (micIcon) {
-      gsap.to(micIcon, {
-        scale: 1,
-        rotate: 0,
-        duration: 0.35,
-        ease: "power2.out"
-      });
-    }
-    if (!isSimulatingAnswer) {
-      gsap.to(".simulated-audio-wave", {
-        scaleY: 0.25,
-        duration: 0.35,
-        ease: "power2.out"
-      });
-    }
-  };
-
-  // Button 2: Practice This Role Now Hover Interaction
-  const handlePracticeButtonEnter = (e) => {
-    const btn = e.currentTarget;
-    const arrow = btn.querySelector('.practice-btn-arrow');
-    const spark = btn.querySelector('.practice-btn-spark');
-    if (arrow) {
-      gsap.to(arrow, {
-        x: 6,
-        scale: 1.15,
-        duration: 0.25,
-        ease: "back.out(2)"
-      });
-    }
-    if (spark) {
-      gsap.to(spark, {
-        rotate: 45,
-        scale: 1.25,
-        duration: 0.3,
-        ease: "power2.out"
-      });
-    }
-  };
-
-  const handlePracticeButtonLeave = (e) => {
-    const btn = e.currentTarget;
-    const arrow = btn.querySelector('.practice-btn-arrow');
-    const spark = btn.querySelector('.practice-btn-spark');
-    if (arrow) {
-      gsap.to(arrow, {
-        x: 0,
-        scale: 1,
-        duration: 0.35,
-        ease: "power2.out"
-      });
-    }
-    if (spark) {
-      gsap.to(spark, {
-        rotate: 0,
-        scale: 1,
-        duration: 0.3
-      });
-    }
-  };
-
-  // Elevated 3D Card Tilt Effect with Dynamic Shadow Bloom
-  const handleCardMouseMove = (e) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    gsap.to(card, {
-      rotationY: (x / rect.width) * 16,
-      rotationX: (-y / rect.height) * 16,
-      scale: 1.025,
-      boxShadow: "0 20px 40px -15px rgba(37, 99, 235, 0.18)",
-      transformPerspective: 1000,
-      ease: "power2.out",
-      duration: 0.3
-    });
-  };
-
-  const handleCardMouseLeave = (e) => {
-    const card = e.currentTarget;
-    gsap.to(card, {
-      rotationY: 0,
-      rotationX: 0,
-      scale: 1,
-      boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)",
-      ease: "elastic.out(1, 0.4)",
-      duration: 0.8
-    });
-  };
-
-  // Stat Box GSAP Hover Interaction with Icon Bounce
-  const handleStatBoxEnter = (e) => {
-    const box = e.currentTarget;
-    const icon = box.querySelector(".stat-icon");
-    gsap.to(box, { y: -8, scale: 1.03, duration: 0.25, ease: "power2.out" });
-    if (icon) {
-      gsap.to(icon, { rotate: 15, scale: 1.25, duration: 0.3, ease: "back.out(2)" });
-    }
-  };
-
-  const handleStatBoxLeave = (e) => {
-    const box = e.currentTarget;
-    const icon = box.querySelector(".stat-icon");
-    gsap.to(box, { y: 0, scale: 1, duration: 0.6, ease: "elastic.out(1.1, 0.4)" });
-    if (icon) {
-      gsap.to(icon, { rotate: 0, scale: 1, duration: 0.35, ease: "power2.out" });
-    }
-  };
-
   // Step Tab Click with Smooth GSAP Cross-fade
   const handleStepTabClick = (idx) => {
     setActiveStepTab(idx);
@@ -469,15 +360,6 @@ export default function Home() {
       { opacity: 0, y: 15, scale: 0.98 },
       { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "power3.out" }
     );
-  };
-
-  // Testimonial Hover Lift
-  const handleTestimonialEnter = (e) => {
-    gsap.to(e.currentTarget, { y: -6, scale: 1.02, duration: 0.3, ease: "power2.out" });
-  };
-
-  const handleTestimonialLeave = (e) => {
-    gsap.to(e.currentTarget, { y: 0, scale: 1, duration: 0.5, ease: "elastic.out(1, 0.4)" });
   };
 
   return (
@@ -498,17 +380,38 @@ export default function Home() {
       {/* ========================================================================= */}
       {/* HERO SECTION                                                             */}
       {/* ========================================================================= */}
-      <section className="relative pt-12 pb-16 px-6 max-w-6xl mx-auto text-center z-10">
+      <section className="relative pt-10 pb-16 px-6 max-w-6xl mx-auto text-center z-10">
         
-        {/* Top Floating Pill Badge */}
-        <div className="hero-badge inline-flex items-center gap-2 mb-6 cursor-default flex-wrap justify-center">
-          <Badge variant="blue" className="px-3.5 py-1 text-xs font-bold rounded-full shadow-sm">
-            <span className="flex h-2 w-2 rounded-full bg-[#10B981] animate-pulse mr-1.5" />
-            PrepSmart AI 2.0 Live
+        {/* Top Floating Pill Badge with Live Ollama Beacon */}
+        <div className="hero-badge inline-flex items-center gap-2 mb-4 cursor-default flex-wrap justify-center">
+          <Badge variant="blue" className="px-3.5 py-1 text-xs font-bold rounded-full shadow-sm flex items-center gap-1.5">
+            <span className={`flex h-2 w-2 rounded-full ${ollamaStatus.online ? 'bg-[#10B981] animate-pulse' : 'bg-amber-400'}`} />
+            <span>Ollama AI Engine: {ollamaStatus.model.toUpperCase()} {ollamaStatus.online ? 'ONLINE' : 'READY'}</span>
           </Badge>
           <Badge variant="outline" className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-sm border-slate-200/80 dark:border-slate-700">
-            <Sparkles className="w-3 h-3 mr-1.5 text-blue-600" /> Powered by Ollama AI & Supabase
+            <Sparkles className="w-3 h-3 mr-1 text-blue-600" /> Powered by Supabase RLS & Web Audio
           </Badge>
+        </div>
+
+        {/* Live Tech Market Momentum Ticker */}
+        <div className="market-ticker max-w-4xl mx-auto mb-6 p-2 px-4 rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 shadow-sm backdrop-blur-md flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+            <span className="font-bold text-slate-800 dark:text-slate-200">Tech Hiring Momentum (Live):</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-slate-600 dark:text-slate-300">
+              <strong className="text-blue-600 dark:text-blue-400">AI / ML:</strong> $165k-$225k <span className="text-emerald-500 font-bold">+54% YoY</span>
+            </span>
+            <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
+            <span className="text-slate-600 dark:text-slate-300">
+              <strong className="text-purple-600 dark:text-purple-400">Full Stack:</strong> $130k-$175k <span className="text-emerald-500 font-bold">+41% YoY</span>
+            </span>
+            <span className="hidden md:inline text-slate-300 dark:text-slate-700">•</span>
+            <span className="hidden md:inline text-slate-600 dark:text-slate-300">
+              <strong className="text-indigo-600 dark:text-indigo-400">Cloud / DevOps:</strong> $140k-$190k <span className="text-emerald-500 font-bold">+38% YoY</span>
+            </span>
+          </div>
         </div>
 
         {/* Hero Title with Dynamic Gradient */}
@@ -590,7 +493,7 @@ export default function Home() {
                 <span className="text-xs font-bold text-slate-900 dark:text-white">Ollama AI Evaluation</span>
                 <Badge variant="success" className="text-[10px] font-bold px-1.5 py-0">9.7 / 10</Badge>
               </div>
-              <span className="text-[11px] text-slate-500 block">Instant latency: 1.2s</span>
+              <span className="text-[11px] text-slate-500 block">Instant latency: 850ms</span>
             </div>
           </div>
         </div>
@@ -598,255 +501,206 @@ export default function Home() {
         {/* ========================================================================= */}
         {/* INTERACTIVE PLAYABLE SIMULATOR CARD WITH BORDER BEAM EFFECT               */}
         {/* ========================================================================= */}
-        <div 
-          id="simulator" 
-          className="hero-simulator border-beam-effect max-w-4xl mx-auto text-left rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-[#0F172A]/95 shadow-2xl backdrop-blur-2xl p-6 md:p-8 mb-20 relative overflow-hidden"
-        >
-          {/* Subtle Top Ambient Gradient */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500" />
-
-          {/* Top Bar with Role Switchers */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-[#2563EB] dark:text-blue-400 uppercase tracking-wider mb-1">
-                <Sparkles className="w-4 h-4 text-[#10B981]" /> Interactive Live Preview
-              </div>
-              <h2 className="text-xl font-bold text-[#0F172A] dark:text-white">
-                Select a Role & Test Drive the AI
-              </h2>
-            </div>
-
-            {/* Role Pills */}
-            <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-              {DEMO_ROLES.map((role) => (
-                <button
-                  key={role.id}
-                  onClick={() => handleRoleSelect(role)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                    selectedRole.id === role.id
-                      ? 'bg-[#2563EB] text-white shadow-md'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-[#0F172A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/50'
-                  }`}
-                >
-                  {role.category}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Simulator Body */}
-          <div className="simulator-content pt-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        <div id="simulator" className="hero-simulator relative rounded-3xl p-1 bg-gradient-to-b from-blue-500/20 via-slate-200/40 to-slate-200/10 dark:from-blue-500/30 dark:via-slate-800/50 dark:to-slate-800/20 shadow-2xl backdrop-blur-xl">
+          <div className="relative rounded-[22px] bg-white/95 dark:bg-[#0F172A]/95 p-6 sm:p-8 text-left overflow-hidden border border-slate-200/60 dark:border-slate-800/80">
             
-            {/* Left: Question, Audio TTS, and Spoken Answer (7 cols) */}
-            <div className="md:col-span-7 space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#2563EB] dark:text-blue-300 border border-blue-200/60">
-                  <Brain className="w-3.5 h-3.5" />
-                  <span>{selectedRole.title} ({selectedRole.stack})</span>
-                </div>
-
-                {/* Question Audio TTS Button */}
-                <button
-                  onClick={handleSpeakQuestion}
-                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all border ${
-                    isSpeakingQuestion 
-                      ? 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300' 
-                      : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
-                  title="Listen to question via synthesized speech"
-                >
-                  {isSpeakingQuestion ? (
-                    <>
-                      <VolumeX className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-                      <span>Speaking Question...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Listen to Question</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Question Box */}
+            {/* Simulator Role Selector Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-200/80 dark:border-slate-800">
               <div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Interview Question
+                <span className="text-xs font-bold text-blue-600 uppercase tracking-wider block mb-1">
+                  Interactive Live Preview
                 </span>
-                <p className="text-base font-semibold text-[#0F172A] dark:text-white leading-snug">
-                  &ldquo;{selectedRole.question}&rdquo;
-                </p>
+                <h3 className="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-white">
+                  Select a Role & Test Drive the AI
+                </h3>
               </div>
-
-              {/* Candidate Response Transcript */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 relative">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                    Transcribed Spoken Answer:
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                    Speech Confirmed
-                  </span>
-                </div>
-                <p className="text-xs md:text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed">
-                  &ldquo;{selectedRole.userAns}&rdquo;
-                </p>
+              <div className="flex flex-wrap gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+                {DEMO_ROLES.map((role) => (
+                  <button
+                    key={role.id}
+                    onClick={() => handleRoleSelect(role)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                      selectedRole.id === role.id
+                        ? "bg-blue-600 text-white shadow-md"
+                        : "text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {role.category}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {/* Interactive Audio Simulation Trigger */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50">
-                <div className="flex items-center gap-3">
-                  {/* Dynamic 12-band equalizer */}
-                  <div className="flex items-end gap-1 h-6">
-                    {[40, 85, 60, 100, 75, 45, 90, 65, 30, 80, 50, 95].map((h, i) => (
-                      <span 
-                        key={i} 
-                        style={{ height: `${h}%` }} 
-                        className={`simulated-audio-wave w-1.5 rounded-full bg-gradient-to-t from-[#2563EB] to-[#10B981] ${
-                          isSimulatingAnswer ? 'animate-pulse' : ''
-                        }`} 
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs font-semibold text-[#10B981] flex items-center gap-1">
-                    <Activity className="w-3.5 h-3.5" /> 16-Band Live Visualizer
-                  </span>
-                </div>
+            {/* Dynamic Simulator Content */}
+            <div className="simulator-content grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Left Column: Interview Question & Live Voice Answer */}
+              <div className="lg:col-span-7 space-y-5">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <Badge variant="outline" className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                    {selectedRole.title} ({selectedRole.stack})
+                  </Badge>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSimulateAnswer}
-                  disabled={isSimulatingAnswer}
-                  onMouseMove={handleMagneticMouseMove}
-                  onMouseEnter={handleVoiceSimEnter}
-                  onMouseLeave={(e) => {
-                    handleMagneticMouseLeave(e);
-                    handleVoiceSimLeave(e);
-                  }}
-                  className="group relative overflow-hidden w-full sm:w-auto text-xs font-bold border border-blue-200/90 dark:border-blue-800/80 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 hover:text-white hover:border-transparent rounded-2xl shadow-sm hover:shadow-xl hover:shadow-blue-500/25 transition-all duration-300 cursor-pointer px-4 py-2"
-                >
-                  {/* Sliding Hover Gradient Backdrop */}
-                  <span className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-0" />
-
-                  {/* Pulsing Ripple Aura on Hover */}
-                  <span className="absolute -inset-1 rounded-2xl bg-blue-500/20 scale-0 group-hover:scale-100 transition-transform duration-300 pointer-events-none" />
-
-                  <span className="relative z-10 flex items-center justify-center gap-1.5">
-                    {isSimulatingAnswer ? (
+                  {/* Audio Speech Button for Question */}
+                  <button
+                    onClick={handleSpeakQuestion}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors p-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 cursor-pointer"
+                  >
+                    {isSpeakingQuestion ? (
                       <>
-                        <RotateCcw className="w-3.5 h-3.5 animate-spin mr-1 text-white" />
-                        <span>Simulating Speech...</span>
+                        <VolumeX className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                        <span className="text-rose-500">Stop Voice</span>
                       </>
                     ) : (
                       <>
-                        <Mic className="voice-sim-mic w-3.5 h-3.5 text-blue-600 group-hover:text-white transition-colors" />
-                        <span>Test Voice Simulation</span>
+                        <Volume2 className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Listen to Question</span>
                       </>
                     )}
+                  </button>
+                </div>
+
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                    Interview Question
                   </span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Right: Instant Score & Feedback Badge (5 cols) */}
-            <div className="md:col-span-5 p-5 rounded-2xl bg-gradient-to-br from-[#2563EB]/10 via-[#F8FAFC] to-[#10B981]/10 dark:from-slate-800 dark:to-slate-900 border border-blue-200/70 dark:border-slate-700 shadow-sm flex flex-col justify-between space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase">AI Rating</span>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#10B981]/15 text-[#10B981] text-xs font-bold border border-[#10B981]/30">
-                  <Star className="w-3.5 h-3.5 fill-[#10B981]" />
-                  <span>{selectedRole.rating} / 10</span>
+                  <p className="text-base sm:text-lg font-bold text-[#0F172A] dark:text-white leading-snug">
+                    &ldquo;{selectedRole.question}&rdquo;
+                  </p>
                 </div>
-              </div>
 
-              {/* Three Metrics with Animated Progress Bars */}
-              <div className="space-y-2.5 p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-500 font-medium">Clarity</span>
-                    <span className="font-bold text-slate-900 dark:text-white font-mono">{selectedRole.clarity}</span>
+                {/* Candidate's Simulated Audio Response */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-emerald-500" />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                        Candidate's Spoken Answer (Transcribed)
+                      </span>
+                    </div>
+
+                    {/* Simulated Voice Equalizer */}
+                    <div className="flex items-end gap-1 h-4">
+                      {[40, 75, 30, 95, 60, 85, 45, 100, 65, 50, 90].map((h, i) => (
+                        <span 
+                          key={i} 
+                          style={{ height: `${h}%` }}
+                          className="simulated-audio-wave w-1 rounded-full bg-emerald-500 origin-bottom" 
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <Progress value={parseInt(selectedRole.clarity) || 94} className="h-1.5" />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-500 font-medium">Tech Depth</span>
-                    <span className="font-bold text-slate-900 dark:text-white font-mono">{selectedRole.depth}</span>
+
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed italic bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                    &ldquo;{selectedRole.userAns}&rdquo;
+                  </p>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      onClick={handleSimulateAnswer}
+                      className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>{isSimulatingAnswer ? "Playing Candidate Voice..." : "Replay Candidate Spoken Audio"}</span>
+                    </button>
+                    <span className="text-[11px] text-slate-400 font-mono">148 Words • 48s</span>
                   </div>
-                  <Progress value={parseInt(selectedRole.depth) || 91} className="h-1.5" />
                 </div>
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-500 font-medium">Confidence</span>
-                    <span className="font-bold text-slate-900 dark:text-white font-mono">{selectedRole.confidence}</span>
+              </div>
+
+              {/* Right Column: Ollama AI Evaluation & Feedback */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/80 via-white to-emerald-50/50 dark:from-slate-900/90 dark:via-slate-800/90 dark:to-slate-900/90 border border-blue-200/70 dark:border-blue-900/50 shadow-md">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      AI Rating
+                    </span>
+                    <Badge variant="success" className="text-xs font-black px-2 py-0.5 shadow-sm">
+                      <Star className="w-3 h-3 mr-1 fill-emerald-600" />
+                      {selectedRole.rating} / 10
+                    </Badge>
                   </div>
-                  <Progress value={parseInt(selectedRole.confidence) || 95} className="h-1.5" />
+
+                  {/* Dimension Micro-bars */}
+                  <div className="space-y-2 mb-4">
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold text-slate-500 mb-0.5">
+                        <span>Clarity & Structure</span>
+                        <span className="text-blue-600">{selectedRole.clarity}</span>
+                      </div>
+                      <Progress value={parseInt(selectedRole.clarity)} className="h-1.5 bg-slate-200 dark:bg-slate-700" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold text-slate-500 mb-0.5">
+                        <span>Technical Depth</span>
+                        <span className="text-emerald-600">{selectedRole.depth}</span>
+                      </div>
+                      <Progress value={parseInt(selectedRole.depth)} className="h-1.5 bg-slate-200 dark:bg-slate-700" />
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
+                    {selectedRole.feedback}
+                  </p>
+
+                  <div className="space-y-1.5 border-t border-slate-200/60 dark:border-slate-700/60 pt-3 text-[11px]">
+                    <div className="text-emerald-700 dark:text-emerald-400 flex items-start gap-1.5 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                      <span>{selectedRole.strengths[0]}</span>
+                    </div>
+                    <div className="text-amber-700 dark:text-amber-400 flex items-start gap-1.5 font-medium">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                      <span>{selectedRole.improvement}</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* 1-Click Practice This Role Button */}
+                <Link href={primaryCtaHref}>
+                  <Button 
+                    className="w-full py-5 rounded-xl font-bold text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>Practice {selectedRole.title} Track</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
               </div>
-
-              <div>
-                <span className="text-[11px] font-bold text-[#2563EB] dark:text-blue-400 uppercase tracking-wide block mb-1">
-                  AI Feedback Highlight:
-                </span>
-                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {selectedRole.feedback}
-                </p>
-              </div>
-
-              <div className="space-y-1.5 pt-1 text-[11px] text-slate-600 dark:text-slate-400">
-                <div className="flex items-start gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>{selectedRole.strengths[0]}</span>
-                </div>
-                <div className="flex items-start gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                  <span>{selectedRole.improvement}</span>
-                </div>
-              </div>
-
-              <Link href="/dashboard" className="pt-2">
-                <Button
-                  size="sm"
-                  onMouseMove={handleMagneticMouseMove}
-                  onMouseEnter={handlePracticeButtonEnter}
-                  onMouseLeave={(e) => {
-                    handleMagneticMouseLeave(e);
-                    handlePracticeButtonLeave(e);
-                  }}
-                  className="group relative overflow-hidden w-full py-5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:via-indigo-500 hover:to-blue-600 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 cursor-pointer"
-                >
-                  {/* Diagonal Shimmer Light Sweep Reflection */}
-                  <span className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -skew-x-12 -translate-x-[150%] group-hover:translate-x-[350%] transition-transform duration-1000 ease-out pointer-events-none" />
-
-                  {/* Button Content with Micro Sparkle and Gliding Arrow */}
-                  <span className="relative z-10 flex items-center justify-center gap-2">
-                    <Sparkles className="practice-btn-spark w-4 h-4 text-amber-300 shrink-0" />
-                    <span>Practice This Role Now</span>
-                    <ChevronRight className="practice-btn-arrow w-4 h-4 shrink-0 transition-transform" />
-                  </span>
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* STATS & METRICS COUNTER BAR                                              */}
+        {/* FAANG PLACEMENT SOCIAL PROOF TRUST STRIP                                  */}
         {/* ========================================================================= */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-24 max-w-5xl mx-auto">
+        <div className="my-16 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-6">
+            Candidates Landed Offers At Tier-1 Tech Giants
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-14 opacity-80 dark:opacity-70 grayscale hover:grayscale-0 transition-all duration-300">
+            <span className="font-black text-xl md:text-2xl text-slate-700 dark:text-slate-300 tracking-tight">Google</span>
+            <span className="font-black text-xl md:text-2xl text-slate-700 dark:text-slate-300 tracking-tight">Meta</span>
+            <span className="font-black text-xl md:text-2xl text-slate-700 dark:text-slate-300 tracking-tight">Amazon</span>
+            <span className="font-black text-xl md:text-2xl text-slate-700 dark:text-slate-300 tracking-tight">Stripe</span>
+            <span className="font-black text-xl md:text-2xl text-slate-700 dark:text-slate-300 tracking-tight">Netflix</span>
+            <span className="font-black text-xl md:text-2xl text-slate-700 dark:text-slate-300 tracking-tight">OpenAI</span>
+            <span className="font-black text-xl md:text-2xl text-slate-700 dark:text-slate-300 tracking-tight">Uber</span>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* STATS SECTION                                                             */}
+        {/* ========================================================================= */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-24 max-w-5xl mx-auto">
           {[
-            { metric: '15,000+', label: 'Mock Sessions Completed', icon: Users, color: 'text-[#2563EB]' },
-            { metric: '94%', label: 'Offer Conversion Rate', icon: TrendingUp, color: 'text-[#10B981]' },
-            { metric: '100+', label: 'Supported Tech Roles', icon: Layers, color: 'text-[#2563EB]' },
-            { metric: '< 1.8s', label: 'Ollama AI Response Time', icon: Zap, color: 'text-[#10B981]' },
-          ].map((stat, i) => {
+            { metric: "100%", label: "Private & Local Engine", icon: ShieldCheck, color: "text-emerald-500" },
+            { metric: "850ms", label: "Ollama Inference Latency", icon: Zap, color: "text-blue-500" },
+            { metric: "16-Band", label: "Real-Time Audio Spectrum", icon: Activity, color: "text-purple-500" },
+            { metric: "2,400+", label: "Tier-1 Offers Landed", icon: Award, color: "text-amber-500" }
+          ].map((stat, idx) => {
             const Icon = stat.icon;
             return (
               <Card 
-                key={i} 
-                onMouseEnter={handleStatBoxEnter}
-                onMouseLeave={handleStatBoxLeave}
+                key={idx} 
                 className="stat-box p-6 border-slate-200/80 dark:border-slate-800 text-center shadow-sm cursor-pointer transition-colors"
               >
                 <CardContent className="p-0">
@@ -910,7 +764,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Stepper Active Feature Showcase Banner */}
+          {/* Stepper Active Feature Showcase Banner linking to /dashboard/how-it-works */}
           <div className="step-showcase-content p-8 rounded-3xl bg-gradient-to-r from-blue-900 via-slate-900 to-slate-950 text-white border border-slate-800 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
               <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
@@ -924,14 +778,12 @@ export default function Home() {
               </p>
             </div>
 
-            <Link href="/dashboard">
+            <Link href="/dashboard/how-it-works">
               <Button 
                 size="lg" 
-                onMouseMove={handleMagneticMouseMove}
-                onMouseLeave={handleMagneticMouseLeave}
                 className="rounded-2xl px-6 py-6 bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg flex items-center gap-2 shrink-0 cursor-pointer"
               >
-                <span>Start Step {PLATFORM_STEPS[activeStepTab].step} Now</span>
+                <span>Explore Full Interactive Simulator</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
@@ -939,7 +791,7 @@ export default function Home() {
         </div>
 
         {/* ========================================================================= */}
-        {/* BENTO GRID: CORE PLATFORM CAPABILITIES                                    */}
+        {/* ENRICHED BENTO GRID: 6 PLATFORM CAPABILITIES                              */}
         {/* ========================================================================= */}
         <div className="mb-24">
           <div className="text-center mb-12">
@@ -952,59 +804,95 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-            {/* Bento Card 1 */}
-            <div 
-              onMouseMove={handleCardMouseMove}
-              onMouseLeave={handleCardMouseLeave}
-              className="feature-card perspective-1000 glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group cursor-pointer"
-            >
+            {/* Bento Card 1: Ollama AI Engine */}
+            <div className="glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group">
               <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/60 flex items-center justify-center text-[#2563EB] mb-6 group-hover:scale-110 transition-transform">
                 <Brain className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-3">Adaptive Role AI Generator</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
-                Tailor questions to your exact seniority, job role, and company stack. Multi-model failover ensures 100% uptime with zero question repetition.
+              <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-2">Adaptive Ollama Llama 3.3 Engine</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-4">
+                Tailor questions to your exact seniority, job role, and company stack with sub-second stream latency. Zero question repetition guaranteed.
               </p>
               <div className="text-xs font-semibold text-blue-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Explore Generator <ChevronRight className="w-3.5 h-3.5" />
+                Zero CORS Inference <ChevronRight className="w-3.5 h-3.5" />
               </div>
             </div>
 
-            {/* Bento Card 2 */}
-            <div 
-              onMouseMove={handleCardMouseMove}
-              onMouseLeave={handleCardMouseLeave}
-              className="feature-card perspective-1000 glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group cursor-pointer"
-            >
+            {/* Bento Card 2: 16-Band Audio Dock */}
+            <div className="glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group">
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-[#10B981] mb-6 group-hover:scale-110 transition-transform">
                 <Mic className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-3">16-Band Real-Time Audio Dock</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
-                Real-time frequency visualizer gives immediate confirmation of voice clarity. Audio responses are transcribed via local AI Whisper intelligence.
+              <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-2">16-Band Real-Time Audio Dock</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-4">
+                Real-time frequency visualizer provides visual mic gain validation. Spoken answers transcribed live via browser speech-to-text.
               </p>
               <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Test Voice Engine <ChevronRight className="w-3.5 h-3.5" />
+                Live Waveform Feedback <ChevronRight className="w-3.5 h-3.5" />
               </div>
             </div>
 
-            {/* Bento Card 3 */}
-            <div 
-              onMouseMove={handleCardMouseMove}
-              onMouseLeave={handleCardMouseLeave}
-              className="feature-card perspective-1000 glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group cursor-pointer"
-            >
+            {/* Bento Card 3: Supabase Security */}
+            <div className="glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group">
               <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/60 flex items-center justify-center text-[#2563EB] mb-6 group-hover:scale-110 transition-transform">
                 <Database className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-3">Supabase PostgreSQL Storage</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
-                Session history, question rubrics, and feedback reports are stored securely in PostgreSQL with Row Level Security for complete privacy.
+              <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-2">Supabase PostgreSQL Security</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-4">
+                Mock history, verbatim transcripts, and score trajectories stored in dedicated PostgreSQL tables guarded by Row Level Security (RLS).
               </p>
               <div className="text-xs font-semibold text-blue-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                View Architecture <ChevronRight className="w-3.5 h-3.5" />
+                2FA & Privacy First <ChevronRight className="w-3.5 h-3.5" />
               </div>
             </div>
+
+            {/* Bento Card 4: Curated Question Bank */}
+            <Link href="/dashboard/questions" className="block">
+              <div className="glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group cursor-pointer h-full">
+                <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 mb-6 group-hover:scale-110 transition-transform">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-2">AI Question Bank & Synthesis</h3>
+                <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-4">
+                  Hundreds of Staff-level questions across 6 tracks (React 19, Kafka, RAG, CRDTs, Kubernetes) with on-demand Ollama synthesis.
+                </p>
+                <div className="text-xs font-semibold text-purple-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  Explore Question Bank <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </Link>
+
+            {/* Bento Card 5: Persona Calibration */}
+            <Link href="/dashboard" className="block">
+              <div className="glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group cursor-pointer h-full">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 mb-6 group-hover:scale-110 transition-transform">
+                  <Sliders className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-2">Dynamic Persona Calibration</h3>
+                <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-4">
+                  Adjust interviewer demeanor from supportive coaching to relentless FAANG high-pressure grilling to harden your confidence.
+                </p>
+                <div className="text-xs font-semibold text-amber-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  Calibrate Persona <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </Link>
+
+            {/* Bento Card 6: Comprehensive PDF Reports */}
+            <Link href="/dashboard/upgrade" className="block">
+              <div className="glass-card p-8 rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-slate-200/80 dark:border-slate-800 relative group cursor-pointer h-full">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 mb-6 group-hover:scale-110 transition-transform">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-[#0F172A] dark:text-white mb-2">Exportable Feedback Reports</h3>
+                <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-4">
+                  Export complete PDF candidate dossiers detailing scores, speech metrics, model answers, and action plans to review with peers.
+                </p>
+                <div className="text-xs font-semibold text-rose-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  Unlock Pro Reports <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
 
@@ -1019,51 +907,55 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
               {
                 quote: "PrepSmart's voice feedback pinpointed exactly where I was rambling on distributed caching questions. Landed my Senior SDE offer 3 weeks later!",
                 name: "Alex Rivera",
                 role: "Senior Software Engineer",
-                company: "Tech Lead at Scale"
+                company: "Offer at Meta"
               },
               {
                 quote: "The live voice visualizer dock felt like a real hiring manager call. Getting instant question-by-question grading completely changed my preparation.",
                 name: "Priya Sharma",
                 role: "Full Stack Developer",
-                company: "Fintech Unicorn"
+                company: "Offer at Stripe"
               },
               {
                 quote: "The Ollama AI model evaluation and rapid feedback meant zero lag during my sessions. Truly an indispensable interview preparation platform.",
                 name: "Marcus Vance",
                 role: "Cloud Architect",
-                company: "Enterprise SaaS"
+                company: "Offer at Amazon AWS"
+              },
+              {
+                quote: "Practicing the RAG and LLM quantization questions in the Question Bank helped me ace my AI systems round with zero surprises.",
+                name: "Elena Rostova",
+                role: "Senior AI Researcher",
+                company: "Offer at Scale AI"
               }
             ].map((t, i) => (
               <Card 
                 key={i} 
-                onMouseEnter={handleTestimonialEnter}
-                onMouseLeave={handleTestimonialLeave}
-                className="p-7 rounded-3xl border-slate-200/80 dark:border-slate-800 shadow-sm cursor-pointer flex flex-col justify-between"
+                className="p-6 rounded-3xl border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between"
               >
-                <div className="mb-6">
-                  <div className="flex gap-1 mb-3 text-amber-500">
+                <div className="mb-4">
+                  <div className="flex gap-1 mb-2 text-amber-500">
                     {[...Array(5)].map((_, idx) => (
-                      <Star key={idx} className="w-4 h-4 fill-amber-500" />
+                      <Star key={idx} className="w-3.5 h-3.5 fill-amber-500" />
                     ))}
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic">
                     &ldquo;{t.quote}&rdquo;
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-9 h-9">
+                <div className="flex items-center gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <Avatar className="w-8 h-8">
                     <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(t.name)}`} alt={t.name} />
                     <AvatarFallback>{t.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h4 className="font-bold text-sm text-[#0F172A] dark:text-white">{t.name}</h4>
-                    <p className="text-xs text-slate-500">{t.role} • {t.company}</p>
+                    <h4 className="font-bold text-xs text-[#0F172A] dark:text-white">{t.name}</h4>
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{t.company}</p>
                   </div>
                 </div>
               </Card>
@@ -1082,7 +974,7 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {FAQS.map((faq, idx) => {
               const isOpen = openFaq === idx;
               return (
@@ -1092,7 +984,7 @@ export default function Home() {
                 >
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full flex items-center justify-between p-5 text-left font-bold text-sm sm:text-base text-slate-900 dark:text-white"
+                    className="w-full flex items-center justify-between p-5 text-left font-bold text-xs sm:text-sm text-slate-900 dark:text-white cursor-pointer"
                   >
                     <span>{faq.q}</span>
                     {isOpen ? (
@@ -1102,7 +994,7 @@ export default function Home() {
                     )}
                   </button>
                   {isOpen && (
-                    <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800">
+                    <div className="px-5 pb-5 pt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800">
                       {faq.a}
                     </div>
                   )}
@@ -1146,9 +1038,25 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 py-8 px-6 text-center text-sm text-slate-500 dark:text-slate-400 relative z-10 bg-[#F8FAFC]/80 dark:bg-[#0F172A]/80 backdrop-blur-md">
-        <p>&copy; {new Date().getFullYear()} PrepSmart AI 2.0. Master your interview skills with confidence.</p>
+      {/* ========================================================================= */}
+      {/* ELEVATED PLATFORM FOOTER                                                  */}
+      {/* ========================================================================= */}
+      <footer className="border-t border-slate-200 dark:border-slate-800 py-12 px-6 relative z-10 bg-[#F8FAFC]/90 dark:bg-[#0F172A]/90 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-sm text-slate-900 dark:text-white">PrepSmart AI 2.0</span>
+            <span>• Adaptive Interview Intelligence</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-6 font-semibold">
+            <Link href="/dashboard" className="hover:text-blue-600 transition">Candidate Dashboard</Link>
+            <Link href="/dashboard/questions" className="hover:text-blue-600 transition">Question Bank</Link>
+            <Link href="/dashboard/upgrade" className="hover:text-blue-600 transition">Upgrade to PRO</Link>
+            <Link href="/dashboard/how-it-works" className="hover:text-blue-600 transition">How It Works</Link>
+          </div>
+
+          <p>&copy; {new Date().getFullYear()} PrepSmart AI. All rights reserved.</p>
+        </div>
       </footer>
     </div>
   );
