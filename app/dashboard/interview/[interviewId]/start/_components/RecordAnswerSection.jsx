@@ -62,6 +62,7 @@ function RecordAnswerSection({
   const [speechError, setSpeechError] = useState(null);
   const [selectedLang, setSelectedLang] = useState('en-US');
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [isRefreshingMics, setIsRefreshingMics] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -159,26 +160,77 @@ function RecordAnswerSection({
     }
   };
 
-  // Enumerate all available audio input microphones
-  const refreshAudioDevices = async () => {
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+  // Enumerate all available audio input microphones and probe permissions to ensure full device labels
+  const refreshAudioDevices = async (showFeedback = false) => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices) return;
+
+    setIsRefreshingMics(true);
+    if (showFeedback) {
+      toast.info('Scanning for microphones & audio devices...');
+    }
+
+    try {
+      // If we don't have an active stream, probe briefly with getUserMedia to reveal human-readable device labels
+      let testStream = null;
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const mics = devices.filter((d) => d.kind === 'audioinput');
-        setAudioDevices(mics);
-        if (mics.length > 0 && !selectedDeviceId) {
-          const valid = mics.find((m) => m.deviceId && m.deviceId !== 'default');
-          setSelectedDeviceId(valid?.deviceId || mics[0]?.deviceId || 'default');
+        if (!audioStreamRef.current && navigator.mediaDevices.getUserMedia) {
+          testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
-      } catch (e) {
-        console.warn('Could not enumerate mics:', e);
+      } catch (permErr) {
+        console.warn('Microphone probe permission notice:', permErr);
       }
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter((d) => d.kind === 'audioinput' && d.deviceId);
+
+      // Stop the temporary probe track immediately
+      if (testStream) {
+        testStream.getTracks().forEach((track) => track.stop());
+      }
+
+      setAudioDevices(mics);
+
+      if (mics.length > 0) {
+        // If current device is missing or default, select first valid device
+        const exists = mics.some((m) => m.deviceId === selectedDeviceId);
+        if (!selectedDeviceId || !exists) {
+          const preferred = mics.find((m) => m.deviceId && m.deviceId !== 'default');
+          setSelectedDeviceId(preferred?.deviceId || mics[0]?.deviceId || 'default');
+        }
+
+        if (showFeedback) {
+          toast.success(`Found ${mics.length} microphone device${mics.length === 1 ? '' : 's'}!`);
+        }
+      } else if (showFeedback) {
+        toast.warning('No external microphones detected. Using system default.');
+      }
+    } catch (e) {
+      console.warn('Could not enumerate mics:', e);
+      if (showFeedback) {
+        toast.error('Could not refresh microphone devices: ' + (e.message || 'Please check mic access.'));
+      }
+    } finally {
+      setTimeout(() => {
+        setIsRefreshingMics(false);
+      }, 500);
     }
   };
 
   useEffect(() => {
-    refreshAudioDevices();
-  }, [selectedDeviceId]);
+    refreshAudioDevices(false);
+
+    // Listen for real-time hardware changes (e.g. plugging in or unplugging Bluetooth/USB headsets)
+    const handleDeviceChange = () => {
+      refreshAudioDevices(false);
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+      return () => {
+        navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+      };
+    }
+  }, []);
 
   // Handle switching active microphone on the fly
   const handleDeviceChange = async (e) => {
@@ -959,11 +1011,13 @@ function RecordAnswerSection({
 
           <button
             type="button"
-            onClick={refreshAudioDevices}
-            title="Refresh available microphones"
-            className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer transition-colors"
+            disabled={isRefreshingMics}
+            onClick={() => refreshAudioDevices(true)}
+            title="Scan and refresh available microphones"
+            aria-label="Refresh available microphones"
+            className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-all duration-200 disabled:opacity-50 shadow-sm active:scale-95"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingMics ? 'animate-spin text-blue-600 dark:text-blue-400' : ''}`} />
           </button>
         </div>
       </div>
