@@ -273,7 +273,7 @@ function Header() {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Questions', href: '/dashboard/questions', icon: Layers },
     { name: 'Upgrade', href: '/dashboard/upgrade', icon: Sparkles, badge: 'PRO' },
-    { name: 'How it Works', href: '/#how-it-works', icon: PlayCircle }
+    { name: 'How it Works', href: '/dashboard/how-it-works', icon: PlayCircle }
   ];
 
   return (
