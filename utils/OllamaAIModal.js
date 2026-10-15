@@ -60,6 +60,28 @@ export const OllamaService = {
 
     return await res.json();
   },
+
+  /**
+   * Analyze candidate resume against target role and job description
+   */
+  analyzeResume: async ({ resumeText, targetRole, targetJobDesc, model }) => {
+    const res = await fetch('/api/ollama/resume-analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resumeText,
+        targetRole,
+        targetJobDesc,
+        model,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Ollama resume analysis failed (HTTP ${res.status})`);
+    }
+
+    return await res.json();
+  },
 };
 
 /**

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useRef, useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import AddNewInterview from './_components/AddNewInterview'
 import InterviewList from './_components/InterviewList'
 import CandidateOnboardingDialog from '@/components/CandidateOnboardingDialog'
@@ -25,7 +26,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Activity,
-  RefreshCw
+  RefreshCw,
+  FileText
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -435,6 +437,16 @@ function Dashboard() {
               <Rocket className="w-4 h-4" />
               <span>Start New Mock</span>
             </button>
+
+            <Link href="/dashboard/resume-scanner">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs md:text-sm font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/20 transition-all duration-200 hover:scale-[1.02] active:scale-95 cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Tailor with Resume</span>
+              </button>
+            </Link>
 
             <button
               type="button"

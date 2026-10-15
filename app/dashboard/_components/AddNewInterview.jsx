@@ -29,7 +29,9 @@ import {
   Flame,
   Wand2,
   Sliders,
-  ChevronRight
+  ChevronRight,
+  FileText,
+  ArrowRight
 } from 'lucide-react';
 import gsap from 'gsap';
 import { db } from '@/utils/db';
@@ -37,6 +39,7 @@ import { MockInterview } from '@/utils/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/context/AuthContext';
 import moment from 'moment';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -388,6 +391,27 @@ function AddNewInterview() {
                   );
                 })}
               </div>
+
+              {/* Resume-to-Mock Customizer Shortcut Banner */}
+              <Link 
+                href="/dashboard/resume-scanner"
+                onClick={() => setOpenDailog(false)}
+                className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-200/80 dark:border-purple-800/60 hover:border-purple-400 transition cursor-pointer group mt-2"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <FileText className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>Have a resume ready?</span>
+                      <span className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-extrabold px-1.5 py-0 rounded-full">New</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Scan your resume to tailor interview questions directly to your actual projects.</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition-transform shrink-0" />
+              </Link>
             </div>
 
             {/* FIELD 1: JOB ROLE */}

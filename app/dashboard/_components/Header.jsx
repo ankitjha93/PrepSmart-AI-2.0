@@ -30,7 +30,8 @@ import {
   Cpu,
   Flame,
   Award,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react';
 import AccountSettingsDialog from '@/components/AccountSettingsDialog';
 import { Button } from '@/components/ui/button';
@@ -494,6 +495,14 @@ function Header() {
                       >
                         <LayoutDashboard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         <span>Candidate Dashboard</span>
+                      </Link>
+                      <Link
+                        href="/dashboard/resume-scanner"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition"
+                      >
+                        <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span>Resume ATS Customizer</span>
                       </Link>
                       <button
                         onClick={() => {
