@@ -443,6 +443,9 @@ function RecordAnswerSection({
 
         toast.dismiss();
         toast.success(`Answer scored ${ratingStr}/10 with constructive feedback!`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('prepsmart_refresh_interviews'));
+        }
         if (onAnswerSaved) onAnswerSaved();
       } catch (dbErr) {
         console.warn('DB insert fallback:', dbErr);
@@ -453,6 +456,9 @@ function RecordAnswerSection({
         });
         toast.dismiss();
         toast.success(`Answer evaluated (${ratingStr}/10) by Ollama AI!`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('prepsmart_refresh_interviews'));
+        }
         if (onAnswerSaved) onAnswerSaved();
       }
     } catch (err) {

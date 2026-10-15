@@ -1,11 +1,12 @@
 "use client"
 
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import AddNewInterview from './_components/AddNewInterview'
 import InterviewList from './_components/InterviewList'
 import CandidateOnboardingDialog from '@/components/CandidateOnboardingDialog'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
+import moment from 'moment'
 import { 
   Sparkles, 
   Briefcase, 
@@ -23,7 +24,8 @@ import {
   Layers,
   ArrowRight,
   ShieldCheck,
-  Activity
+  Activity,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -77,10 +79,14 @@ function Dashboard() {
   const { user } = useAuth();
   const [ollamaStatus, setOllamaStatus] = useState({ online: false, activeModel: 'llama3.3', models: [] });
   const [userStats, setUserStats] = useState({
-    avgScore: '9.4',
+    avgScore: '0.0',
     totalSessions: 0,
     totalAnswers: 0,
-    hasLoaded: false
+    totalWords: 0,
+    avgWords: 0,
+    currentStreak: 0,
+    hasLoaded: false,
+    isRefreshing: false
   });
 
   const userEmail = user?.email || user?.primaryEmailAddress?.emailAddress;
@@ -89,7 +95,104 @@ function Dashboard() {
                    user?.firstName || 
                    (userEmail ? userEmail.split('@')[0] : 'Candidate');
 
-  // Probe Ollama status & fetch real user analytics
+  // Normalize heterogeneous date formats (DD-MM-YYYY, YYYY-MM-DD, ISO) into YYYY-MM-DD
+  const normalizeToDateKey = (dateStr) => {
+    if (!dateStr) return null;
+    const m = moment(dateStr, ['DD-MM-YYYY', 'YYYY-MM-DD', 'DD/MM/YYYY', moment.ISO_8601], true);
+    if (m.isValid()) return m.format('YYYY-MM-DD');
+    const fallback = moment(dateStr);
+    if (fallback.isValid()) return fallback.format('YYYY-MM-DD');
+    return null;
+  };
+
+  // Instant real-time analytics fetcher
+  const fetchAnalytics = useCallback(async (isManualRefresh = false) => {
+    if (!userEmail) {
+      setUserStats(prev => ({ ...prev, hasLoaded: true, isRefreshing: false }));
+      return;
+    }
+
+    if (isManualRefresh) {
+      setUserStats(prev => ({ ...prev, isRefreshing: true }));
+    }
+
+    try {
+      const [interviews, answers] = await Promise.all([
+        db.select().from(MockInterview).where(eq(MockInterview.createdBy, userEmail)),
+        db.select().from(UserAnswer).where(eq(UserAnswer.userEmail, userEmail))
+      ]);
+
+      const sessionCount = interviews?.length || 0;
+      const answerCount = answers?.length || 0;
+
+      // 1. Calculate true average score
+      let calculatedAvg = '0.0';
+      if (answers && answers.length > 0) {
+        const validRatings = answers
+          .map(a => parseFloat(a.rating))
+          .filter(r => !isNaN(r) && r > 0);
+        if (validRatings.length > 0) {
+          const sum = validRatings.reduce((acc, curr) => acc + curr, 0);
+          calculatedAvg = (sum / validRatings.length).toFixed(1);
+        }
+      }
+
+      // 2. Real Transcribed Word Count & Articulation Depth
+      let totalWords = 0;
+      (answers || []).forEach(a => {
+        if (a.userAns && typeof a.userAns === 'string') {
+          const words = a.userAns.trim().split(/\s+/).filter(Boolean).length;
+          totalWords += words;
+        }
+      });
+      const avgWords = answerCount > 0 ? Math.round(totalWords / answerCount) : 0;
+
+      // 3. True Calendar Day Consecutive Streak Calculation
+      const activeDatesSet = new Set();
+      (answers || []).forEach(a => {
+        const k = normalizeToDateKey(a.createdAt);
+        if (k) activeDatesSet.add(k);
+      });
+      (interviews || []).forEach(i => {
+        const k = normalizeToDateKey(i.createdAt);
+        if (k) activeDatesSet.add(k);
+      });
+
+      const todayKey = moment().format('YYYY-MM-DD');
+      const yesterdayKey = moment().subtract(1, 'day').format('YYYY-MM-DD');
+
+      let streak = 0;
+      let checkDate = null;
+      if (activeDatesSet.has(todayKey)) {
+        checkDate = moment();
+      } else if (activeDatesSet.has(yesterdayKey)) {
+        checkDate = moment().subtract(1, 'day');
+      }
+
+      if (checkDate) {
+        while (activeDatesSet.has(checkDate.format('YYYY-MM-DD'))) {
+          streak++;
+          checkDate.subtract(1, 'day');
+        }
+      }
+
+      setUserStats({
+        avgScore: calculatedAvg,
+        totalSessions: sessionCount,
+        totalAnswers: answerCount,
+        totalWords,
+        avgWords,
+        currentStreak: streak,
+        hasLoaded: true,
+        isRefreshing: false
+      });
+    } catch (err) {
+      console.warn('Analytics loading notice:', err);
+      setUserStats(prev => ({ ...prev, hasLoaded: true, isRefreshing: false }));
+    }
+  }, [userEmail]);
+
+  // Probe Ollama status & fetch real user analytics on load, custom event, or window focus
   useEffect(() => {
     OllamaService.checkStatus().then((status) => {
       setOllamaStatus({
@@ -99,41 +202,20 @@ function Dashboard() {
       });
     });
 
-    const fetchAnalytics = async () => {
-      if (!userEmail) return;
-      try {
-        const [interviews, answers] = await Promise.all([
-          db.select().from(MockInterview).where(eq(MockInterview.createdBy, userEmail)),
-          db.select().from(UserAnswer).where(eq(UserAnswer.userEmail, userEmail))
-        ]);
+    fetchAnalytics(false);
 
-        const sessionCount = interviews?.length || 0;
-        const answerCount = answers?.length || 0;
-
-        let calculatedAvg = '9.4';
-        if (answers && answers.length > 0) {
-          const validRatings = answers
-            .map(a => parseFloat(a.rating))
-            .filter(r => !isNaN(r) && r > 0);
-          if (validRatings.length > 0) {
-            const sum = validRatings.reduce((acc, curr) => acc + curr, 0);
-            calculatedAvg = (sum / validRatings.length).toFixed(1);
-          }
-        }
-
-        setUserStats({
-          avgScore: calculatedAvg,
-          totalSessions: sessionCount,
-          totalAnswers: answerCount,
-          hasLoaded: true
-        });
-      } catch (err) {
-        console.warn('Analytics loading notice:', err);
-      }
+    const handleRefresh = () => {
+      fetchAnalytics(false);
     };
 
-    fetchAnalytics();
-  }, [userEmail]);
+    window.addEventListener('prepsmart_refresh_interviews', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+
+    return () => {
+      window.removeEventListener('prepsmart_refresh_interviews', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+    };
+  }, [userEmail, fetchAnalytics]);
 
   useGSAP(() => {
     gsap.from(".dash-header", {
@@ -169,39 +251,109 @@ function Dashboard() {
   };
 
   const modelDisplay = (ollamaStatus.activeModel || 'llama3.3').toUpperCase();
+  const numScore = parseFloat(userStats.avgScore) || 0;
+
+  // 1. Dynamic AI Evaluation Tier
+  let evalBadge = "No Data Yet";
+  let evalBadgeVariant = "secondary";
+  let evalIconBg = "bg-slate-50 dark:bg-slate-900 text-slate-500 border-slate-200/60";
+
+  if (userStats.totalAnswers > 0) {
+    if (numScore >= 8.5) {
+      evalBadge = "Top 5% • Elite";
+      evalBadgeVariant = "success";
+      evalIconBg = "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/60";
+    } else if (numScore >= 7.0) {
+      evalBadge = "Top 15% • Senior";
+      evalBadgeVariant = "blue";
+      evalIconBg = "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200/60";
+    } else if (numScore >= 5.5) {
+      evalBadge = "Competent";
+      evalBadgeVariant = "indigo";
+      evalIconBg = "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border-indigo-200/60";
+    } else {
+      evalBadge = "Developing";
+      evalBadgeVariant = "amber";
+      evalIconBg = "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/60";
+    }
+  }
+
+  // 2. Dynamic Spoken Articulation & Depth
+  let depthBadge = "Ready to Speak";
+  let depthBadgeVariant = "secondary";
+  let depthPacing = "No Audio Recorded";
+  let depthIconBg = "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200/60";
+
+  if (userStats.totalAnswers > 0) {
+    if (userStats.avgWords >= 50) {
+      depthBadge = "STAR Depth";
+      depthBadgeVariant = "success";
+      depthPacing = "Optimal Depth";
+      depthIconBg = "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200/60";
+    } else if (userStats.avgWords >= 25) {
+      depthBadge = "Good Pace";
+      depthBadgeVariant = "blue";
+      depthPacing = "Clear & Concise";
+      depthIconBg = "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200/60";
+    } else if (userStats.avgWords > 0) {
+      depthBadge = "Brief Answers";
+      depthBadgeVariant = "amber";
+      depthPacing = "Needs More Detail";
+      depthIconBg = "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/60";
+    }
+  }
+
+  // 3. Dynamic Practice Streak
+  let streakBadge = "Day 1 Awaits 🚀";
+  let streakBadgeVariant = "blue";
+  let streakIconBg = "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/60";
+
+  if (userStats.currentStreak >= 3) {
+    streakBadge = "On Fire 🔥";
+    streakBadgeVariant = "amber";
+    streakIconBg = "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/60";
+  } else if (userStats.currentStreak >= 1) {
+    streakBadge = "Active Streak ⚡";
+    streakBadgeVariant = "success";
+    streakIconBg = "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/60";
+  } else if (userStats.totalSessions > 0) {
+    streakBadge = "Resume Today 🎯";
+    streakBadgeVariant = "indigo";
+    streakIconBg = "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border-indigo-200/60";
+  }
 
   const candidateStats = [
     {
       label: "AI Evaluation Index",
-      value: `${userStats.avgScore} / 10`,
-      change: userStats.totalAnswers > 0 ? `${userStats.totalAnswers} Answers Scored` : "+0.8 this week",
+      value: !userStats.hasLoaded ? "—" : (userStats.totalAnswers > 0 ? `${userStats.avgScore} / 10` : "— / 10"),
+      change: !userStats.hasLoaded ? "Loading scores..." : (userStats.totalAnswers > 0 ? `${userStats.totalAnswers} Answers Scored` : "0 Answers Scored"),
       icon: Award,
-      badge: "Top 5%",
-      badgeVariant: "success",
-      iconBg: "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/60"
+      badge: evalBadge,
+      badgeVariant: evalBadgeVariant,
+      iconBg: evalIconBg
     },
     {
-      label: "Speech Clarity Score",
-      value: "96.2%",
-      change: "Optimal Pace",
+      label: "Speech Clarity & Depth",
+      value: !userStats.hasLoaded ? "—" : (userStats.totalAnswers > 0 ? `${userStats.avgWords} Words / Ans` : "0 Words"),
+      change: !userStats.hasLoaded ? "Calculating pace..." : (userStats.totalWords > 0 ? `${userStats.totalWords.toLocaleString()} Spoken Words` : depthPacing),
       icon: Mic,
-      badge: "Real-Time",
-      badgeVariant: "blue",
-      iconBg: "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200/60"
+      badge: depthBadge,
+      badgeVariant: depthBadgeVariant,
+      iconBg: depthIconBg
     },
     {
       label: "Practice Streak",
-      value: "4 Days",
-      change: "Goal: 7 days",
+      value: !userStats.hasLoaded ? "—" : `${userStats.currentStreak} Day${userStats.currentStreak === 1 ? '' : 's'}`,
+      change: !userStats.hasLoaded ? "Calculating..." : `${userStats.totalSessions} Session${userStats.totalSessions === 1 ? '' : 's'} Created`,
       icon: Flame,
-      badge: "On Fire",
-      badgeVariant: "amber",
-      iconBg: "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/60"
+      badge: streakBadge,
+      badgeVariant: streakBadgeVariant,
+      iconBg: streakIconBg
     },
     {
       label: "AI Engine",
       value: `Ollama ${modelDisplay}`,
-      change: "Zero Cloud Latency",
+      change: ollamaStatus.online ? "Port 11434 • Zero Cloud Latency" : "Local AI Ready • Fallback",
       icon: BrainCircuit,
       badge: ollamaStatus.online ? "Online (11434)" : "Local AI Ready",
       badgeVariant: ollamaStatus.online ? "success" : "gradient",
@@ -269,36 +421,60 @@ function Dashboard() {
       {/* ========================================================================= */}
       {/* 2. CANDIDATE TELEMETRY & STATS ROW                                       */}
       {/* ========================================================================= */}
-      <div className='dash-header grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
-        {candidateStats.map((stat, idx) => {
-          const Icon = stat.icon;
-          return (
-            <Card 
-              key={idx} 
-              onMouseEnter={handleStatHover}
-              onMouseLeave={handleStatLeave}
-              className="p-5 cursor-pointer transition-colors border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm"
-            >
-              <CardContent className="p-0">
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`stat-card-icon w-10 h-10 rounded-2xl flex items-center justify-center border ${stat.iconBg}`}>
-                    <Icon className="w-5 h-5" />
+      <div className='dash-header space-y-3'>
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              Live Candidate Telemetry
+            </h3>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1.5" />
+              Real-Time Sync
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchAnalytics(true)}
+            title="Refresh candidate statistics"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors cursor-pointer group"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${userStats.isRefreshing ? 'animate-spin text-blue-600' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+            <span className="font-semibold hidden sm:inline">Sync Now</span>
+          </button>
+        </div>
+
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+          {candidateStats.map((stat, idx) => {
+            const Icon = stat.icon;
+            return (
+              <Card 
+                key={idx} 
+                onMouseEnter={handleStatHover}
+                onMouseLeave={handleStatLeave}
+                className="p-5 cursor-pointer transition-colors border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-sm"
+              >
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`stat-card-icon w-10 h-10 rounded-2xl flex items-center justify-center border ${stat.iconBg}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <Badge variant={stat.badgeVariant} className="text-[10px] font-bold">
+                      {stat.badge}
+                    </Badge>
                   </div>
-                  <Badge variant={stat.badgeVariant} className="text-[10px] font-bold">
-                    {stat.badge}
-                  </Badge>
-                </div>
-                <h4 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight mb-1 truncate">
-                  {stat.value}
-                </h4>
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>{stat.label}</span>
-                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 truncate ml-1">{stat.change}</span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                  <h4 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight mb-1 truncate">
+                    {stat.value}
+                  </h4>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{stat.label}</span>
+                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 truncate ml-1">{stat.change}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       {/* ========================================================================= */}

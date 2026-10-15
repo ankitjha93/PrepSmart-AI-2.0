@@ -230,6 +230,10 @@ function AddNewInterview() {
             })
             .returning({ mockId: MockInterview.mockId });
 
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('prepsmart_refresh_interviews'));
+          }
+
           if (resp && resp[0]?.mockId) {
             setOpenDailog(false);
             router.push('/dashboard/interview/' + resp[0]?.mockId);
@@ -240,6 +244,9 @@ function AddNewInterview() {
         } catch (dbErr) {
           console.warn('DB insert fallback:', dbErr);
           toast.success('Interview generated via Ollama! (Local preview mode)');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('prepsmart_refresh_interviews'));
+          }
           setOpenDailog(false);
           router.push('/dashboard/interview/' + newMockId);
         }

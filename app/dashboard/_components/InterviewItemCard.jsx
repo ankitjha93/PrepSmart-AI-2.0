@@ -181,11 +181,17 @@ function InterviewItemCard({ interview, answerStats, onDelete }) {
                     duration: 0.25,
                     ease: "power2.in",
                     onComplete: () => {
+                        if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('prepsmart_refresh_interviews'));
+                        }
                         if (onDelete) onDelete(targetMockId);
                         toast.success("Mock interview deleted successfully");
                     }
                 });
             } else {
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('prepsmart_refresh_interviews'));
+                }
                 if (onDelete) onDelete(targetMockId);
                 toast.success("Mock interview deleted successfully");
             }
